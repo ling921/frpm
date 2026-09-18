@@ -55,6 +55,7 @@ jobs:
           --runtime ${{ matrix.rid }}
           --self-contained true
           --property:PublishSingleFile=true
+          --property:UseAppHost=true
           --property:IncludeNativeLibrariesForSelfExtract=true
           --property:PublishTrimmed=false
           --output publish/${{ matrix.rid }}/FRPM
