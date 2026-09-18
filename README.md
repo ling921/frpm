@@ -67,11 +67,23 @@ chmod +x Frpm start.sh
 ./start.sh
 ```
 
-默认监听 `http://+:8080`。首次启动后访问 `http://服务器地址:8080`。
+默认通过 `appsettings.json` 中的 `Urls` 配置监听 `http://+:8080`。首次启动后访问 `http://服务器地址:8080`。
 
 ### 修改配置
 
 虽然主程序采用单文件发布，`appsettings.json` 仍作为程序同目录的**外置配置文件**保留，可在停止 FRPM 后直接编辑。推荐在同目录新建 `appsettings.Production.json`，仅写入需要覆盖的项，升级时便不必覆盖默认配置。
+
+### 端口与监听地址
+
+使用 `Urls` 配置监听地址。多个地址用英文分号 `;` 分隔，`+` 表示监听所有网络接口：
+
+```json
+{
+  "Urls": "http://+:8080;http://+:9000"
+}
+```
+
+默认 `appsettings.json` 已包含相同说明的注释。无需修改启动脚本；编辑配置文件后重新启动 FRPM 即可生效。
 
 例如，将数据保存到指定目录并将 SQLite 数据库一同迁移：
 
@@ -101,19 +113,6 @@ Linux 路径示例：
     }
   }
 }
-```
-
-修改端口或监听地址时，请使用环境变量启动。Windows：
-
-```powershell
-$env:ASPNETCORE_URLS = "http://0.0.0.0:9000"
-.\Frpm.exe
-```
-
-Linux：
-
-```bash
-ASPNETCORE_URLS=http://0.0.0.0:9000 ./Frpm
 ```
 
 > [!IMPORTANT]
