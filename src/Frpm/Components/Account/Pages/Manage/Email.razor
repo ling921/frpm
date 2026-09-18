@@ -1,0 +1,40 @@
+﻿@page "/Account/Manage/Email"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Frpm.Data
+
+
+<PageTitle>邮箱设置</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom="true">邮箱设置</MudText>
+
+<StatusMessage Message="@message"/>
+<div class="row">
+    <div class="col-xl-6">
+        <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+            <AntiforgeryToken />
+        </form>
+        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            @if (isEmailConfirmed)
+            {
+                <MudTextField Value="@email" Label="邮箱" Variant="Variant.Outlined" ReadOnly="true" Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.CheckCircle" AdornmentColor="Color.Success" Class="mb-3" />
+            }
+            else
+            {
+                <MudTextField Value="@email" Label="邮箱" Variant="Variant.Outlined" ReadOnly="true" Class="mb-2" />
+                <button type="submit" class="btn btn-link mb-3" form="send-verification-form">发送验证邮件</button>
+            }
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="Input.NewEmail" Label="新邮箱" Variant="Variant.Outlined" InputType="InputType.Email" Placeholder="请输入新邮箱" />
+                <ValidationMessage For="() => Input.NewEmail" class="text-danger" />
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">更换邮箱</MudButton>
+            </MudStack>
+        </EditForm>
+    </div>
+</div>

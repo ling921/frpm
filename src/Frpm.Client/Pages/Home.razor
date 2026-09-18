@@ -1,0 +1,36 @@
+@page "/"
+
+<PageTitle>仪表盘 - FRPM</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <div>
+        <MudText Typo="Typo.h4">运行概览</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">集中查看第三方 FRP 隧道与本地 CLI 状态</MudText>
+    </div>
+    <MudSpacer />
+    <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_loading" />
+</MudStack>
+
+@if (_dashboard is null)
+{
+    <MudProgressLinear Indeterminate />
+}
+else
+{
+    <MudGrid Spacing="3">
+        <DashboardStatCard Title="供应商账号" Value="_dashboard.AccountCount" Icon="@Icons.Material.Filled.CloudQueue" Color="Color.Info" />
+        <DashboardStatCard Title="已知隧道" Value="_dashboard.TunnelCount" Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Primary" />
+        <DashboardStatCard Title="正在运行" Value="_dashboard.RunningCount" Icon="@Icons.Material.Filled.PlayCircle" Color="Color.Success" />
+        <DashboardStatCard Title="运行失败" Value="_dashboard.FailedCount" Icon="@Icons.Material.Filled.Error" Color="Color.Error" />
+        <DashboardStatCard Title="远端缺失" Value="_dashboard.RemoteMissingCount" Icon="@Icons.Material.Filled.CloudOff" Color="Color.Warning" />
+    </MudGrid>
+
+    <MudPaper Class="pa-5 mt-6" Elevation="0" Outlined>
+        <MudText Typo="Typo.h6" GutterBottom>快速操作</MudText>
+        <MudStack Row Wrap="Wrap.Wrap" Spacing="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.SwapHoriz" Href="tunnels">管理隧道</MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" Href="providers">添加供应商账号</MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.SystemUpdateAlt" Href="cli-packages">安装 CLI</MudButton>
+        </MudStack>
+    </MudPaper>
+}

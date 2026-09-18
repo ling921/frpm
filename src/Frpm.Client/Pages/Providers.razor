@@ -1,0 +1,103 @@
+@page "/providers"
+
+<PageTitle>供应商账号 - FRPM</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom>供应商账号</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">同一家供应商可以配置多个账号，访问凭据加密保存且不会回显。</MudText>
+
+<MudExpansionPanels Class="mb-5">
+    <MudExpansionPanel Text="添加或编辑账号" @bind-Expanded="_editorOpen">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudSelect T="ProviderType" Label="供应商" @bind-Value="_request.ProviderType" Variant="Variant.Outlined">
+                    @foreach (var provider in BuiltInProviderCatalog.All)
+                    {
+                        <MudSelectItem Value="provider.Type">@provider.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField Label="显示名称" @bind-Value="_request.DisplayName" Variant="Variant.Outlined" Required />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField Label="API 地址（留空使用默认值）" @bind-Value="_request.ApiBaseUrl" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField Label="访问令牌" @bind-Value="_request.AccessToken" InputType="InputType.Password"
+                              Variant="Variant.Outlined" HelperText="编辑时留空表示不更换" />
+            </MudItem>
+            @if (BuiltInProviderCatalog.Get(_request.ProviderType).SupportsOAuth)
+            {
+                <MudItem xs="12" md="3">
+                    <MudTextField Label="OAuth Client ID" @bind-Value="_request.ClientId" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudTextField Label="OAuth Client Secret" @bind-Value="_request.ClientSecret"
+                                  InputType="InputType.Password" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Login"
+                               OnClick="StartOAuthAsync" Disabled="_busy">
+                        使用 Authorization Code + PKCE 授权并创建账号
+                    </MudButton>
+                </MudItem>
+            }
+            <MudItem xs="12">
+                <MudSwitch T="bool" @bind-Value="_request.Enabled" Color="Color.Primary">启用账号和定时同步</MudSwitch>
+            </MudItem>
+        </MudGrid>
+        <MudStack Row Justify="Justify.FlexEnd" Class="mt-4">
+            <MudButton Variant="Variant.Text" OnClick="ResetEditor">取消</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_busy">
+                保存并验证
+            </MudButton>
+        </MudStack>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate />
+}
+else if (_accounts.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">还没有供应商账号，请先添加一个账号。</MudAlert>
+}
+else
+{
+    <MudGrid>
+        @foreach (var account in _accounts)
+        {
+            <MudItem xs="12" md="6" lg="4">
+                <MudCard Outlined>
+                    <MudCardContent>
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            <MudAvatar Color="Color.Primary">@account.DisplayName[..1]</MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.h6">@account.DisplayName</MudText>
+                                <MudText Typo="Typo.caption">
+                                    @BuiltInProviderCatalog.Get(account.ProviderType).DisplayName · @account.TunnelCount 条隧道
+                                </MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudChip T="string" Size="Size.Small" Color="@(account.Enabled ? Color.Success : Color.Default)">
+                                @(account.Enabled ? "已启用" : "已停用")
+                            </MudChip>
+                        </MudStack>
+                        <MudDivider Class="my-3" />
+                        <MudText Typo="Typo.body2" Class="text-truncate">@account.ApiBaseUrl</MudText>
+                        <MudText Typo="Typo.caption" Color="@(account.LastSyncSucceeded == false ? Color.Error : Color.Secondary)">
+                            @(account.LastSyncAt is null ? "尚未同步" : $"上次同步：{account.LastSyncAt:yyyy-MM-dd HH:mm:ss} · {account.LastSyncMessage}")
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Size="Size.Small" OnClick="() => SyncAsync(account)">同步</MudButton>
+                        <MudButton Size="Size.Small" OnClick="() => Edit(account)">编辑</MudButton>
+                        <MudSpacer />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => DeleteAsync(account)" />
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}

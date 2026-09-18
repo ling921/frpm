@@ -1,0 +1,16 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using Frpm.Data
+
+
+<MudNavMenu>
+    <MudNavLink Href="Account/Manage" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Person">个人资料</MudNavLink>
+    <MudNavLink Href="Account/Manage/Email" Icon="@Icons.Material.Filled.Email">邮箱</MudNavLink>
+    <MudNavLink Href="Account/Manage/ChangePassword" Icon="@Icons.Material.Filled.Password">密码</MudNavLink>
+    @if (hasExternalLogins)
+    {
+        <MudNavLink Href="Account/Manage/ExternalLogins" Icon="@Icons.Material.Filled.Link">外部登录</MudNavLink>
+    }
+    <MudNavLink Href="Account/Manage/TwoFactorAuthentication" Icon="@Icons.Material.Filled.Security">双重验证</MudNavLink>
+    <MudNavLink Href="Account/Manage/Passkeys" Icon="@Icons.Material.Filled.Key">通行密钥</MudNavLink>
+    <MudNavLink Href="Account/Manage/PersonalData" Icon="@Icons.Material.Filled.FolderShared">个人数据</MudNavLink>
+</MudNavMenu>

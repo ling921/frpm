@@ -1,0 +1,3695 @@
+openapi: 3.0.1
+info:
+  title: ME Frp 5.0 开放 API
+  description: 此文件由 Apifox 文档站点 5442083 导出，作为 FRPM 的本地接口契约快照。
+  version: 1.0.0
+  x-apifox-site-id: 5442083
+tags:
+  - name: 新版本
+paths:
+  /public/statistics:
+    get:
+      summary: 统计信息
+      deprecated: false
+      description: 获取用户数量、节点数量、隧道数量、已承载流量
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: integer
+                        title: 用户数量
+                      nodes:
+                        type: integer
+                        title: 节点数量
+                      proxies:
+                        type: integer
+                        title: 隧道数量
+                      traffic:
+                        type: integer
+                        title: 已承载流量
+                    required:
+                      - users
+                      - nodes
+                      - proxies
+                      - traffic
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  users: 44984
+                  nodes: 57
+                  proxies: 4696
+                  traffic: 76852995417754
+                message: 获取统计信息成功
+          headers: {}
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 获取统计信息失败
+          headers: {}
+      security: []
+  /public/store/products:
+    get:
+      summary: 获取商城商品
+      deprecated: false
+      description: 获取商城商品
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          description: 类型
+                          type: string
+                        name:
+                          description: 商品名
+                          type: string
+                        price:
+                          description: 价格
+                          type: number
+                        unit:
+                          description: 单位
+                          type: string
+                        description:
+                          description: 使用 | 分隔行
+                          type: string
+                          title: 商品介绍
+                        enabled:
+                          description: 是否启用
+                          type: boolean
+                        discountEnabled:
+                          description: 是否有折扣
+                          type: boolean
+                        discountPrice:
+                          type: number
+                          description: 折扣价格
+                        discountStartTime:
+                          description: 折扣开始时间
+                          type: integer
+                        discountEndTime:
+                          description: 折扣结束时间
+                          type: integer
+                        currentPrice:
+                          description: 现在的价格
+                          type: number
+                        isDiscountActive:
+                          description: 折扣是否可用
+                          type: boolean
+                        discountRemainingSeconds:
+                          description: 折扣剩余时间
+                          type: integer
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  - type: traffic
+                    name: 流量包
+                    price: 0.1
+                    unit: GB
+                    description: 无限期有效|无额外限速|支持所有节点
+                    enabled: true
+                    discountEnabled: false
+                    discountPrice: 0
+                    discountStartTime: 0
+                    discountEndTime: 0
+                    currentPrice: 0.1
+                    isDiscountActive: false
+                    discountRemainingSeconds: 0
+                message: 获取成功
+          headers: {}
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security: []
+  /public/register/emailCode:
+    post:
+      summary: 获取邮件注册验证码
+      deprecated: false
+      description: >-
+        >
+        此端点需要进行人机验证传参，详见[此文档](%E6%9C%89%E5%85%B3%E4%BA%BA%E6%9C%BA%E9%AA%8C%E8%AF%81%E7%9A%84%E6%8F%90%E9%86%92-6889302m0)
+
+
+        获取注册用的邮箱验证码
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  title: 邮箱
+                captchaToken:
+                  type: string
+                  title: 验证码 token
+              required:
+                - email
+                - captchaToken
+            examples: {}
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    data: null
+                    message: 验证码已发送, 请检查邮箱
+                    code: 200
+                '2':
+                  summary: 数据不全
+                  value:
+                    data: null
+                    message: 无效的请求数据
+                    code: 400
+                '3':
+                  summary: 邮箱不规范
+                  value:
+                    data: null
+                    message: 邮箱格式错误, 请检查并重试
+                    code: 400
+                '4':
+                  summary: 禁止提供商
+                  value:
+                    data: null
+                    message: 此邮件提供商已被系统封禁, 请更换
+                    code: 400
+                '5':
+                  summary: 重复邮箱
+                  value:
+                    data: null
+                    message: 不允许使用同一个邮箱注册多个账户
+                    code: 400
+                '6':
+                  summary: 发送失败
+                  value:
+                    data: null
+                    message: 验证码发送失败, 请稍后再试
+                    code: 500
+                '7':
+                  summary: 禁止注册
+                  value:
+                    data: null
+                    message: 注册功能已关闭, 请联系管理员
+                    code: 403
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '8':
+                  summary: 缺少验证码
+                  value:
+                    code: 400
+                    data: null
+                    message: 缺少验证码
+                '9':
+                  summary: 无效的请求数据
+                  value:
+                    code: 400
+                    data: null
+                    message: 无效的请求数据
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 404
+                data: null
+                message: 用户获取失败, 请检查用户名或邮箱是否正确
+          headers: {}
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security: []
+  /public/register:
+    post:
+      summary: 注册账户
+      deprecated: false
+      description: 使用邮箱注册账户，需要先获取邮件注册验证码
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  title: 用户名
+                email:
+                  type: string
+                  title: 邮箱
+                emailCode:
+                  type: string
+                  title: 验证码
+                  description: 使用上一个接口获取
+                password:
+                  type: string
+                  title: 密码
+                  description: 密码必须包含大小写字母和数字, 长度为8-16位
+              required:
+                - username
+                - email
+                - emailCode
+                - password
+            examples: {}
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    data: null
+                    message: 已成功注册, 欢迎使用
+                    code: 200
+                '2':
+                  summary: 数据不全
+                  value:
+                    data: null
+                    message: 无效的请求数据
+                    code: 400
+                '3':
+                  summary: 密码不规范
+                  value:
+                    data: null
+                    message: 密码必须包含大小写字母和数字, 长度为8-16位
+                    code: 400
+                '4':
+                  summary: 邮箱不规范
+                  value:
+                    data: null
+                    message: 邮箱格式错误, 请检查并重试
+                    code: 400
+                '5':
+                  summary: 用户名不规范
+                  value:
+                    data: null
+                    message: 用户名必须为4-16个字符, 且只能包含字母、数字和下划线
+                    code: 400
+                '6':
+                  summary: 用户名已存在
+                  value:
+                    data: null
+                    message: 用户名已存在, 请更换用户名
+                    code: 400
+                '7':
+                  summary: 邮箱验证码错误
+                  value:
+                    data: null
+                    message: 验证码错误, 请检查并重试
+                    code: 400
+                '8':
+                  summary: 获取设置失败
+                  value:
+                    data: null
+                    message: 获取设置失败
+                    code: 500
+                '9':
+                  summary: 密码加密失败
+                  value:
+                    data: null
+                    message: 注册失败, 密码处理错误, 请联系管理员
+                    code: 500
+                '10':
+                  summary: 用户组错误
+                  value:
+                    data: null
+                    message: 注册失败, 用户组配置错误
+                    code: 500
+                '11':
+                  summary: 禁止注册
+                  value:
+                    data: null
+                    message: 注册功能已关闭, 请联系管理员
+                    code: 403
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security: []
+  /public/login:
+    post:
+      summary: 密码登录
+      deprecated: false
+      description: >-
+        >
+        此端点需要进行人机验证传参，详见[此文档](%E6%9C%89%E5%85%B3%E4%BA%BA%E6%9C%BA%E9%AA%8C%E8%AF%81%E7%9A%84%E6%8F%90%E9%86%92-6889302m0)
+
+
+        使用密码登录账户
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  title: 用户名
+                password:
+                  type: string
+                  title: 密码
+                captchaToken:
+                  type: string
+                  title: 验证码 token
+              required:
+                - username
+                - password
+                - captchaToken
+            examples: {}
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                data: null
+                message: 已成功注册, 欢迎使用
+                code: 200
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 400
+                data: null
+                message: 无效的请求数据
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '3':
+                  summary: 密码错误
+                  value:
+                    code: 403
+                    data: null
+                    message: 密码错误, 请检查并重试
+                '4':
+                  summary: 用户被封禁
+                  value:
+                    code: 403
+                    data: null
+                    message: '此用户已被封禁, 请联系管理员: [封禁原因]'
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 404
+                data: null
+                message: 用户获取失败, 请检查用户名或邮箱是否正确
+          headers: {}
+      security: []
+  /public/iforgot:
+    post:
+      summary: 找回账户
+      deprecated: false
+      description: 找回账户
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  title: 用户名
+                password:
+                  type: string
+                  title: 密码
+              required:
+                - username
+                - password
+            examples: {}
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '1':
+                  summary: 成功示例
+                  value:
+                    data: null
+                    message: 已成功注册, 欢迎使用
+                    code: 200
+                '2':
+                  summary: 未找到用户
+                  value:
+                    data: null
+                    message: 用户获取失败, 请检查用户名或邮箱是否正确
+                    code: 404
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                data: null
+                message: 无效的请求数据
+                code: 400
+          headers: {}
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '4':
+                  summary: 被封禁
+                  value:
+                    data: null
+                    message: '此用户已被封禁, 请联系管理员: [封禁原因]'
+                    code: 403
+                '5':
+                  summary: 密码错误
+                  value:
+                    data: null
+                    message: 密码错误, 请检查并重试
+                    code: 403
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                  code:
+                    type: integer
+                    title: 状态码
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security: []
+  /auth/user/info:
+    get:
+      summary: 获取用户信息
+      deprecated: false
+      description: 获取对应用户的信息
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    $ref: '#/components/schemas/userInfo'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '1':
+                  summary: 成功
+                  value:
+                    code: 200
+                    data:
+                      email: test@mefrp.com
+                      friendlyGroup: 正式用户
+                      group: default
+                      inBound: 3200
+                      isRealname: true
+                      maxProxies: 13
+                      outBound: 3200
+                      regTime: 1740816805
+                      status: 0
+                      todaySigned: false
+                      traffic: 533504
+                      usedProxies: 0
+                      userId: 29688
+                      username: Test
+                    message: 获取用户信息成功
+                '2':
+                  summary: 获取VIP信息失败
+                  value:
+                    code: 500
+                    data: null
+                    message: 获取VIP信息失败
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 获取用户信息失败
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/user/sign:
+    post:
+      summary: 签到
+      deprecated: false
+      description: >-
+        >
+        此端点需要进行人机验证传参，详见[此文档](%E6%9C%89%E5%85%B3%E4%BA%BA%E6%9C%BA%E9%AA%8C%E8%AF%81%E7%9A%84%E6%8F%90%E9%86%92-6889302m0)
+
+
+        签到获取流量
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '1':
+                  summary: VIP 签到成功
+                  value:
+                    code: 200
+                    data: null
+                    message: 签到成功，获得 10 + 10 GB 流量
+                '2':
+                  summary: 普通用户签到成功
+                  value:
+                    code: 200
+                    data: null
+                    message: 签到成功，获得 10 GB 流量
+                '3':
+                  summary: 成功示例
+                  value:
+                    data: null
+                    message: 无效的请求数据
+                    code: 400
+                '4':
+                  summary: 成功示例
+                  value:
+                    code: 403
+                    data: null
+                    message: 今日已签到
+                '5':
+                  summary: 签到失败（流量加不上）
+                  value:
+                    code: 500
+                    data: null
+                    message: 签到失败
+                '6':
+                  summary: 签到失败（系统异常）
+                  value:
+                    code: 500
+                    data: null
+                    message: 获取设置失败
+                '7':
+                  summary: 签到功能关闭
+                  value:
+                    code: 500
+                    data: null
+                    message: 签到功能已关闭, 请联系管理员
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 400
+                data: null
+                message: 无效的请求数据
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '403':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/user/frpToken:
+    get:
+      summary: 获取用户 frpToken
+      deprecated: false
+      description: 获取对应用户的信息
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        description: 启动令牌
+                        type: string
+                        title: frpToken
+                    required:
+                      - token
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  token: x
+                message: 获取启动令牌成功
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 获取用户信息失败
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/user/groups:
+    get:
+      summary: 获取用户组信息
+      deprecated: false
+      description: 获取用户组信息
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      groups:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              description: 组名
+                              type: string
+                            friendlyName:
+                              description: 用户组可读名称
+                              type: string
+                            maxProxies:
+                              description: 最大隧道条数
+                              type: integer
+                            baseTraffic:
+                              description: 基础流量
+                              type: integer
+                            outBound:
+                              description: out 带宽
+                              type: integer
+                            inBound:
+                              description: in 带宽
+                              type: integer
+                          required:
+                            - name
+                            - friendlyName
+                            - maxProxies
+                            - baseTraffic
+                            - outBound
+                            - inBound
+                    required:
+                      - groups
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  groups:
+                    - name: default
+                      friendlyName: 正式用户
+                      maxProxies: 10
+                      baseTraffic: 16384
+                      outBound: 3200
+                      inBound: 3200
+                    - name: noRealname
+                      friendlyName: 未实名
+                      maxProxies: 2
+                      baseTraffic: 2048
+                      outBound: 1280
+                      inBound: 1280
+                    - name: vip
+                      friendlyName: 高级会员
+                      maxProxies: 25
+                      baseTraffic: 204800
+                      outBound: 8320
+                      inBound: 8320
+                message: 获取用户组成功
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 获取用户信息失败
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/user/tokenReset:
+    post:
+      summary: 重置访问密钥
+      deprecated: false
+      description: >-
+        >
+        此端点需要进行人机验证传参，详见[此文档](%E6%9C%89%E5%85%B3%E4%BA%BA%E6%9C%BA%E9%AA%8C%E8%AF%81%E7%9A%84%E6%8F%90%E9%86%92-6889302m0)
+
+
+        重置账户**访问密钥和启动密钥**，同时下线所有隧道
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                captchaToken:
+                  type: string
+                  title: 验证码
+              required:
+                - captchaToken
+            examples: {}
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      newToken:
+                        type: string
+                        title: 密钥
+                        description: 新的访问密钥
+                    required:
+                      - newToken
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  newToken: xxxxxxxxxxxxxxxx
+                message: 重置访问密钥成功
+          headers: {}
+        '400':
+          $ref: '#/components/responses/参数有误'
+          description: ''
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 重置访问密钥失败
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/user/passwordReset:
+    post:
+      summary: 修改密码
+      deprecated: false
+      description: 修改账户密码，这将 **重置启动令牌和访问密钥**
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                oldPassword:
+                  type: string
+                  description: 旧密码
+                newPassword:
+                  type: string
+                  description: 新密码
+              required:
+                - oldPassword
+                - newPassword
+            examples: {}
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              examples:
+                '1':
+                  summary: 修改成功
+                  value:
+                    code: 200
+                    data: null
+                    message: 修改密码成功
+                '2':
+                  summary: 成功示例
+                  value:
+                    data: null
+                    message: 无效的请求数据
+                    code: 400
+                '3':
+                  summary: 修改失败（系统写不了）
+                  value:
+                    code: 500
+                    data: null
+                    message: 修改密码失败
+                '4':
+                  summary: 修改失败（密码处理错误）
+                  value:
+                    code: 500
+                    data: null
+                    message: 修改失败，密码处理错误，请联系管理员
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/operationLog/list:
+    get:
+      summary: 获取用户操作日志
+      deprecated: false
+      description: 获取用户自己的操作审计日志
+      tags: []
+      parameters:
+        - name: page
+          in: query
+          description: 获取第N页数据
+          required: false
+          example: '1'
+          schema:
+            type: string
+        - name: pageSize
+          in: query
+          description: 单页大小
+          required: false
+          example: '20'
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          description: 开始日期
+          required: false
+          example: '{{$date.anytime}}'
+          schema:
+            type: string
+        - name: endTime
+          in: query
+          description: 结束日期，通常是当前时间
+          required: false
+          example: '{{$date.anytime}}'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            logId:
+                              description: 唯一日志 ID
+                              type: integer
+                            category:
+                              type: string
+                              description: 日志分类
+                              enum:
+                                - auth
+                                - proxy
+                                - node
+                                - user
+                                - finance
+                                - security
+                            details:
+                              description: 日志细节
+                              type: string
+                            userAgent:
+                              type: string
+                              description: User-Agent
+                            ipAddress:
+                              description: 请求 IP
+                              type: string
+                            status:
+                              type: string
+                              description: 请求状态
+                              enum:
+                                - success
+                                - failed
+                            createdAt:
+                              description: 请求日志创建时间
+                              type: string
+                          required:
+                            - logId
+                            - category
+                            - details
+                            - ipAddress
+                            - status
+                            - createdAt
+                            - userAgent
+                          description: 单一日志条目
+                      total:
+                        description: 总计日志条目
+                        type: integer
+                      page:
+                        description: 当前页
+                        type: integer
+                      pageSize:
+                        description: 页大小
+                        type: integer
+                      totalPages:
+                        description: 总计页面数
+                        type: integer
+                    required:
+                      - data
+                      - total
+                      - page
+                      - pageSize
+                      - totalPages
+                    description: 数据
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  data:
+                    - logId: 2193456
+                      category: proxy
+                      details: '禁用隧道: [114514] [Moon]'
+                      ipAddress: 169.254.254.254
+                      status: success
+                      createdAt: '2025-11-22T04:51:44.787+08:00'
+                    - logId: 2193379
+                      category: proxy
+                      details: '创建隧道: [Moon] 节点ID: [1] | [IP: localhost, Port: 80]'
+                      ipAddress: 169.254.254.254
+                      status: success
+                      createdAt: '2025-11-22T04:33:01.797+08:00'
+                  total: 2
+                  page: 1
+                  pageSize: 20
+                  totalPages: 1
+                message: 获取操作日志成功
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 获取操作日志失败
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/operationLog/stats:
+    get:
+      summary: 获取用户日志统计
+      deprecated: false
+      description: 获取用户操作日志统计，涵盖今日、本周、本月和总统计。目前只有条目数这一项。
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      monthCount:
+                        type: integer
+                      todayCount:
+                        type: integer
+                      totalCount:
+                        type: integer
+                      weekCount:
+                        type: integer
+                    required:
+                      - monthCount
+                      - todayCount
+                      - totalCount
+                      - weekCount
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  monthCount: 2
+                  todayCount: 0
+                  totalCount: 2
+                  weekCount: 2
+                message: 获取统计数据成功
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '500':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 500
+                data: null
+                message: 获取用户信息失败
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/user/luckydraw:
+    post:
+      summary: 权益抽取
+      deprecated: false
+      description: 权益抽取(抽奖)接口  仅单抽
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      prize:
+                        type: string
+                        title: 提示
+                      type:
+                        type: string
+                        title: 类型
+                      value:
+                        type: integer
+                        title: 值
+                    required:
+                      - prize
+                      - type
+                      - value
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  prize: 25 GB 流量
+                  type: traffic
+                  value: 25
+                message: 抽奖成功
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+    get:
+      summary: 剩余抽奖次数
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                      remaining:
+                        type: integer
+                    required:
+                      - count
+                      - remaining
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  count: 0
+                  remaining: 9
+                message: 获取抽奖次数成功
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/createProxyData:
+    get:
+      summary: 获取创建隧道所需的所有数据
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        nodeId:
+                          description: 节点 ID
+                          type: integer
+                        name:
+                          description: 节点名称
+                          type: string
+                        hostname:
+                          type: string
+                        description:
+                          description: 节点描述
+                          type: string
+                        allowGroup:
+                          description: 允许的用户组
+                          type: string
+                        allowPort:
+                          description: 允许的端口范围
+                          type: string
+                        allowType:
+                          description: 允许穿透的类型
+                          type: string
+                        region:
+                          type: string
+                          description: 区域
+                          enum:
+                            - cn
+                            - cnos
+                            - oversea
+                        bandwidth:
+                          description: 带宽
+                          type: string
+                        isOnline:
+                          description: 是否在线
+                          type: boolean
+                        isDisabled:
+                          description: 是否禁用
+                          type: boolean
+                    description: 节点信息
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          description: 标识
+                          type: string
+                        friendlyName:
+                          description: 友好名称
+                          type: string
+                        maxProxies:
+                          description: 最大隧道数
+                          type: integer
+                        baseTraffic:
+                          type: integer
+                        outBound:
+                          type: integer
+                        inBound:
+                          type: integer
+                      required:
+                        - name
+                        - friendlyName
+                        - maxProxies
+                        - baseTraffic
+                        - outBound
+                        - inBound
+                    description: 用户组信息
+                  currentGroup:
+                    description: 当前用户组
+                    type: string
+                required:
+                  - nodes
+                  - groups
+                  - currentGroup
+              example:
+                nodes:
+                  - nodeId: 1
+                    name: 月球 ①
+                    hostname: ''
+                    description: 测试节点
+                    allowGroup: admin;sponsor;vip
+                    allowPort: 40000-65535
+                    allowType: tcp;udp
+                    region: cn
+                    bandwidth: 200Mbps
+                    isOnline: true
+                    isDisabled: false
+                groups:
+                  - name: default
+                    friendlyName: 正式用户
+                    maxProxies: 10
+                    baseTraffic: 16384
+                    outBound: 3200
+                    inBound: 3200
+                  - name: noRealname
+                    friendlyName: 未实名
+                    maxProxies: 2
+                    baseTraffic: 2048
+                    outBound: 1280
+                    inBound: 1280
+                currentGroup: default
+          headers: {}
+        '400':
+          $ref: '#/components/responses/参数有误'
+          description: ''
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/list:
+    get:
+      summary: 获取隧道列表
+      deprecated: false
+      description: 获取隧道列表
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      nodes:
+                        type: object
+                        properties:
+                          nodeId:
+                            type: string
+                            title: 节点ID
+                          name:
+                            type: string
+                            title: 节点名称
+                          hostname:
+                            type: string
+                            title: 节点地址
+                          allowGroup:
+                            type: string
+                            title: 节点允许用户组
+                        required:
+                          - nodeId
+                          - name
+                          - hostname
+                          - allowGroup
+                      proxies:
+                        type: object
+                        properties:
+                          proxyId:
+                            type: integer
+                            title: 隧道 ID
+                          username:
+                            type: string
+                            title: 隧道所属用户名
+                          proxyName:
+                            type: string
+                            title: 隧道名
+                          proxyType:
+                            description: 隧道类型（tcp/udp/http/https）
+                            type: string
+                            title: 隧道协议
+                          isBanned:
+                            description: 是否被封禁
+                            type: boolean
+                            title: 是否被封禁
+                          isDisabled:
+                            description: 是否被手动禁用
+                            type: boolean
+                            title: 是否被禁用
+                          localIp:
+                            description: 本地监听 IP
+                            type: string
+                            title: 本地地址
+                          localPort:
+                            description: 本地端口
+                            type: integer
+                            title: 本地端口
+                          remotePort:
+                            description: 远程端口
+                            type: integer
+                            title: 远程端口
+                          nodeId:
+                            description: 所属节点 ID
+                            type: integer
+                            title: 节点 ID
+                          runId:
+                            description: 格式：`<访问令牌>-<运行 ID>`，不存在即为`""`
+                            type: string
+                            title: 上次启动的运行 ID
+                          isOnline:
+                            description: 当前在线状态
+                            type: boolean
+                            title: 是否在线
+                          domain:
+                            description: 列表被文本化，需要额外处理，如[\"mefrp.com\"]
+                            type: string
+                            title: 远程节点域名
+                          lastStartTime:
+                            description: 不存在即为0
+                            type: integer
+                            title: 上次上线时间
+                          lastCloseTime:
+                            description: 不存在即为0
+                            type: integer
+                            title: 上次下线时间
+                          clientVersion:
+                            description: 客户端版本号
+                            type: string
+                            title: 客户端版本
+                          proxyProtocolVersion:
+                            description: 代理协议版本
+                            type: string
+                          useEncryption:
+                            description: 是否启用传输加密
+                            type: boolean
+                            title: 数据是否加密
+                          useCompression:
+                            description: 是否启用传输压缩
+                            type: boolean
+                            title: 数据是否压缩
+                          location:
+                            description: 地理位置标签
+                            type: string
+                            title: Location 参数
+                          accessKey:
+                            type: string
+                            title: 访问密钥
+                            description: 访问密钥已回归
+                          hostHeaderRewrite:
+                            description: 不存在即为空（`""`）
+                            type: string
+                            title: 请求头重写
+                          httpPlugin:
+                            description: HTTP 插件名称
+                            type: string
+                          crtPath:
+                            description: TLS 证书路径
+                            type: string
+                          keyPath:
+                            description: TLS 私钥路径
+                            type: string
+                          requestHeaders:
+                            type: object
+                            properties: {}
+                            description: 向内网服务回源时添加的请求头
+                          httpUser:
+                            description: HTTP Basic Auth 用户名
+                            type: string
+                          httpPassword:
+                            description: HTTP Basic Auth 密码
+                            type: string
+                        required:
+                          - proxyId
+                          - username
+                          - proxyName
+                          - proxyType
+                          - isBanned
+                          - isDisabled
+                          - localIp
+                          - localPort
+                          - remotePort
+                          - nodeId
+                          - runId
+                          - isOnline
+                          - domain
+                          - lastStartTime
+                          - lastCloseTime
+                          - clientVersion
+                          - proxyProtocolVersion
+                          - useEncryption
+                          - useCompression
+                          - location
+                          - accessKey
+                          - hostHeaderRewrite
+                          - httpPlugin
+                          - crtPath
+                          - keyPath
+                          - requestHeaders
+                          - httpUser
+                          - httpPassword
+                    required:
+                      - proxies
+                      - nodes
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example: |-
+                {
+                  "code": 200,
+                  "data": {
+                    "nodes": [
+                      {
+                        "nodeId": 1,
+                        "name": "",
+                        "hostname": "",
+                        "allowGroup": ""
+                      }
+                    ],
+                    "proxies": [
+                      {
+                        "proxyId": 1,
+                        "username": "user",
+                        "proxyName": "test",
+                        "proxyType": "tcp",
+                        "isBanned": false,
+                        "isDisabled": false,
+                        "localIp": "127.0.0.1",
+                        "localPort": 1,
+                        "remotePort": 1,
+                        "nodeId": 1,
+                        "runId": "",
+                        "isOnline": false,
+                        "domain": "",
+                        "lastStartTime": ,
+                        "lastCloseTime": ,
+                        "clientVersion": "",
+                        "proxyProtocolVersion": "",
+                        "useEncryption": false,
+                        "useCompression": false,
+                        "locations": "",
+                        "accessKey": "",
+                        "hostHeaderRewrite": "",
+                        "httpPlugin": "",
+                        "crtPath": "",
+                        "keyPath": "",
+                        "requestHeaders": "",
+                        "responseHeaders": "",
+                        "httpUser": "",
+                        "httpPassword": "",
+                        "transportProtocol": "",
+                        "tags": ""
+                      }
+                    ]
+                  },
+                  "message": "获取隧道列表成功"
+                }
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: 'null'
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/create:
+    post:
+      summary: 创建隧道
+      deprecated: true
+      description: 创建隧道
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nodeId:
+                  type: integer
+                  description: 节点 ID
+                proxyName:
+                  type: string
+                  title: 名称
+                  description: 隧道名称
+                localIp:
+                  type: string
+                  title: 本地 IP
+                  description: 本地绑定 IP 地址
+                localPort:
+                  type: integer
+                  title: 本地端口
+                  description: 本地监听端口
+                remotePort:
+                  type: integer
+                  title: 远程端口
+                  description: 远程目标端口
+                domain:
+                  type: string
+                  description: 绑定域名，在非 HTTP(S) 下留空
+                  nullable: true
+                proxyType:
+                  type: string
+                  title: 类型
+                  description: 隧道类型
+                accessKey:
+                  type: string
+                  description: 已弃用，留空即可
+                  nullable: true
+                hostHeaderRewrite:
+                  type: string
+                  description: Host 请求头重写规则
+                  nullable: true
+                headerXFromWhere:
+                  type: string
+                  description: 自定义 X-From-Where 请求头值
+                  nullable: true
+                proxyProtocolVersion:
+                  type: string
+                  description: 隧道协议版本
+                useEncryption:
+                  type: boolean
+                  description: 是否启用加密
+                useCompression:
+                  type: boolean
+                  description: 是否启用压缩
+              required:
+                - nodeId
+                - proxyName
+                - localIp
+                - localPort
+                - remotePort
+                - domain
+                - proxyType
+                - accessKey
+                - hostHeaderRewrite
+                - headerXFromWhere
+                - proxyProtocolVersion
+                - useEncryption
+                - useCompression
+            examples:
+              '1':
+                value:
+                  nodeId: 1
+                  proxyName: proxy_name
+                  localIp: 169.254.254.254
+                  localPort: 25565
+                  remotePort: 28071
+                  domain: ''
+                  proxyType: tcp
+                  accessKey: ''
+                  hostHeaderRewrite: ''
+                  headerXFromWhere: ''
+                  proxyProtocolVersion: ''
+                  useEncryption: false
+                  useCompression: false
+                summary: TCP 隧道
+              '2':
+                value:
+                  nodeId: 1
+                  proxyName: http_proxy_name
+                  localIp: 169.254.254.254
+                  localPort: 80
+                  remotePort: null
+                  domain: '["api.mefrp.com"]'
+                  proxyType: http
+                  accessKey: ''
+                  hostHeaderRewrite: ''
+                  headerXFromWhere: ''
+                  proxyProtocolVersion: ''
+                  useEncryption: false
+                  useCompression: false
+                summary: HTTP 隧道
+              '3':
+                value:
+                  nodeId: 1
+                  proxyName: https_proxy_name
+                  localIp: 169.254.254.254
+                  localPort: 443
+                  remotePort: null
+                  domain: '["api.mefrp.com"]'
+                  proxyType: https
+                  accessKey: ''
+                  hostHeaderRewrite: ''
+                  headerXFromWhere: ''
+                  proxyProtocolVersion: ''
+                  useEncryption: false
+                  useCompression: false
+                summary: HTTPS 隧道
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    description: 数据
+                    type: 'null'
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: null
+                message: 创建隧道成功
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/delete:
+    post:
+      summary: 删除隧道
+      deprecated: false
+      description: 删除指定隧道 ID
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxyId:
+                  type: number
+                  description: 隧道唯一 ID
+              required:
+                - proxyId
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    description: 数据
+                    type: 'null'
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: null
+                message: 删除隧道成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: 'null'
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/kick:
+    post:
+      summary: 强制下线隧道
+      deprecated: false
+      description: 强制下线指定隧道
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxyId:
+                  type: number
+                  description: 隧道唯一 ID
+              required:
+                - proxyId
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    description: 数据
+                    type: 'null'
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: null
+                message: 强制下线隧道成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: 'null'
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/toggle:
+    post:
+      summary: 启用/禁用隧道
+      deprecated: false
+      description: 启用/禁用指定隧道
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxyId:
+                  type: number
+                  description: 隧道唯一 ID
+                isDisabled:
+                  type: boolean
+                  description: 是否被禁用
+              required:
+                - proxyId
+                - isDisabled
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    description: 数据
+                    type: 'null'
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: null
+                message: 禁用隧道成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: 'null'
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/config:
+    post:
+      summary: 获取单一隧道配置
+      deprecated: false
+      description: 获取单一隧道配置，对于快速启动，您应当获取 frpToken 拼接启动命令
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxyId:
+                  type: number
+                  description: 隧道唯一 ID
+                format:
+                  type: string
+                  description: 配置文件格式，需小写。支持 "toml" "json" "yml" "ini"
+              required:
+                - proxyId
+                - format
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: 状态码
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        description: 配置文件内容
+                        type: string
+                      type:
+                        description: 类型
+                        type: string
+                    required:
+                      - config
+                      - type
+                    description: 数据
+                  message:
+                    type: string
+                    description: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  config: ''
+                  type: TOML
+                message: 生成配置成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: 'null'
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/config/multiple:
+    post:
+      summary: 获取多个隧道配置
+      deprecated: false
+      description: |-
+        > **Beta feature** 这是一个测试功能，可能不按预期工作，请反馈任何错误。
+
+        获取多个隧道配置，仅当所有隧道在同一节点上才可正常获取。暂**不支持 YAML** 格式配置。
+
+        对于快速启动，您应当获取 frpToken 拼接启动命令，多个隧道 ID 使用 `,` 隔开
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxyIds:
+                  type: array
+                  items:
+                    type: number
+                    description: 隧道唯一 ID
+                  description: 隧道 ID 列表
+                format:
+                  type: string
+                  description: 配置文件格式，需小写。支持 "toml" "json" "ini"
+              required:
+                - proxyIds
+                - format
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    description: 状态码
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        description: 配置文件内容
+                        type: string
+                      type:
+                        description: 类型
+                        type: string
+                    required:
+                      - config
+                      - type
+                    description: 数据
+                  message:
+                    type: string
+                    description: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  config: ''
+                  type: TOML
+                message: 生成配置成功
+          headers: {}
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  data:
+                    type: 'null'
+                  message:
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/proxy/update:
+    post:
+      summary: 更新隧道
+      deprecated: true
+      description: 修改隧道，注意不是切换是否禁用
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxyName:
+                  description: 隧道名称
+                  type: string
+                  title: 名称
+                proxyType:
+                  description: 隧道类型
+                  type: string
+                  title: 类型
+                localIp:
+                  description: 本地绑定 IP 地址
+                  type: string
+                  title: 本地 IP
+                localPort:
+                  description: 本地监听端口
+                  type: integer
+                  title: 本地端口
+                remotePort:
+                  description: 远程目标端口
+                  type: integer
+                  title: 远程端口
+                nodeId:
+                  description: 节点 ID
+                  type: integer
+                domain:
+                  type: string
+                  description: 绑定域名，可空
+                  nullable: true
+                proxyProtocolVersion:
+                  type: string
+                  description: 隧道协议版本
+                  nullable: true
+                useEncryption:
+                  description: 是否启用加密
+                  type: boolean
+                useCompression:
+                  type: boolean
+                  description: 是否启用压缩
+                hostHeaderRewrite:
+                  type: string
+                  description: Host 请求头重写规则
+                  nullable: true
+                headerXFromWhere:
+                  type: string
+                  description: 自定义 X-From-Where 请求头值
+                  nullable: true
+              required:
+                - proxyName
+                - proxyType
+                - localIp
+                - localPort
+                - remotePort
+                - nodeId
+                - headerXFromWhere
+                - hostHeaderRewrite
+                - useCompression
+                - useEncryption
+                - proxyProtocolVersion
+                - domain
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    description: 数据
+                    type: 'null'
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: null
+                message: 更新隧道成功
+          headers: {}
+        '401':
+          $ref: '#/components/responses/鉴权失败'
+          description: ''
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: 'null'
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/node/list:
+    get:
+      summary: 获取节点列表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        nodeId:
+                          type: integer
+                          title: 节点 ID
+                        name:
+                          type: string
+                          title: 节点名
+                        hostname:
+                          type: string
+                          nullable: true
+                        description:
+                          type: string
+                          title: 节点介绍
+                          nullable: true
+                        token:
+                          type: string
+                          nullable: true
+                        servicePort:
+                          type: integer
+                          nullable: true
+                        adminPort:
+                          type: integer
+                          nullable: true
+                        adminPass:
+                          type: string
+                          nullable: true
+                        allowGroup:
+                          type: string
+                          description: 允许的用户组
+                        allowPort:
+                          type: string
+                          description: 允许的端口范围
+                        allowType:
+                          type: string
+                          description: 允许的隧道类型
+                        region:
+                          type: string
+                          title: 区域
+                          enum:
+                            - cn
+                            - cnos
+                            - oversea
+                        bandwidth:
+                          type: string
+                          title: 节点带宽
+                        isOnline:
+                          type: boolean
+                          title: 是否在线
+                        isDisabled:
+                          type: boolean
+                          title: 是否被禁用
+                        totalTrafficIn:
+                          type: integer
+                          title: 入站流量
+                        totalTrafficOut:
+                          type: integer
+                          title: 出站流量
+                        upTime:
+                          type: integer
+                          title: 在线时长
+                        version:
+                          type: string
+                          title: 节点版本
+                      required:
+                        - nodeId
+                        - name
+                        - hostname
+                        - description
+                        - token
+                        - servicePort
+                        - adminPort
+                        - adminPass
+                        - allowGroup
+                        - allowPort
+                        - allowType
+                        - region
+                        - bandwidth
+                        - isOnline
+                        - isDisabled
+                        - totalTrafficIn
+                        - totalTrafficOut
+                        - upTime
+                        - version
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  - nodeId: 1
+                    name: 月球 ①
+                    hostname: ''
+                    description: 测试节点
+                    token: ''
+                    servicePort: 0
+                    adminPort: 0
+                    adminPass: ''
+                    allowGroup: admin;sponsor;vip
+                    allowPort: 40000-65535
+                    allowType: tcp;udp
+                    region: cn
+                    bandwidth: 200Mbps
+                    isOnline: true
+                    isDisabled: false
+                    totalTrafficIn: 0
+                    totalTrafficOut: 0
+                    upTime: 0
+                    version: ''
+                message: 获取节点成功
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/node/nameList:
+    get:
+      summary: 获取节点连接地址列表
+      deprecated: false
+      description: 仅能获取已创建隧道的节点连接地址
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        nodeId:
+                          description: 节点 ID
+                          type: integer
+                        name:
+                          description: 节点名称
+                          type: string
+                        hostname:
+                          description: 节点连接地址
+                          type: string
+                      required:
+                        - nodeId
+                        - name
+                        - hostname
+                    description: 数据
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  - nodeId: 1
+                    name: 月球 ①
+                    hostname: 169.254.254.254
+                message: 获取节点成功
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/node/status:
+    get:
+      summary: 获取节点状态
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        nodeId:
+                          description: 节点 ID
+                          type: integer
+                        name:
+                          description: 节点名称
+                          type: string
+                        totalTrafficIn:
+                          description: 今日入站流量
+                          type: integer
+                        totalTrafficOut:
+                          description: 今日出站流量
+                          type: integer
+                        onlineClient:
+                          description: 在线客户端
+                          type: integer
+                        onlineProxy:
+                          description: 在线隧道数
+                          type: integer
+                        isOnline:
+                          description: 是否在线
+                          type: boolean
+                        version:
+                          description: 服务端版本
+                          type: string
+                        uptime:
+                          description: 在线时长
+                          type: integer
+                        curConns:
+                          description: 当前连接数
+                          type: integer
+                        loadPercent:
+                          description: 节点负载
+                          type: integer
+                    description: 数据
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  - nodeId: 1
+                    name: 月球 ①
+                    totalTrafficIn: 0
+                    totalTrafficOut: 0
+                    onlineClient: 1
+                    onlineProxy: 1
+                    isOnline: true
+                    version: MEFrp_0.61.1
+                    uptime: 114514
+                    curConns: 0
+                    loadPercent: 1
+                message: 获取节点状态成功
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/node/secret:
+    post:
+      summary: 获取节点 Token
+      deprecated: false
+      description: 获取节点 Token（不是管理密码）和服务端口（实际连接到服务器的端口）。看上去没什么用的接口，不过还是建议请求一下。
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nodeId:
+                  type: number
+                  title: 节点 ID
+              required:
+                - nodeId
+            examples: {}
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    description: 状态码
+                    type: integer
+                  data:
+                    type: object
+                    properties:
+                      serverPort:
+                        description: 服务端口
+                        type: integer
+                      token:
+                        description: 服务 Token
+                        type: string
+                    required:
+                      - serverPort
+                      - token
+                    description: 数据
+                  message:
+                    description: 提示
+                    type: string
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data:
+                  serverPort: 2333
+                  token: I_DONT_KNOW
+                message: 成功
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/system/status:
+    get:
+      summary: 获取系统状态
+      deprecated: false
+      description: |-
+        > **Beta feature** 这是一个测试功能，会在前端 `v5.14.6` 中引入
+
+        状态简码对照表：
+
+        | 状态简码 | 含义 |
+        | -- | -- |
+        | 0 | 服务运行正常 |
+        | 1 | 服务降级，可能有故障或负载过大 |
+        | 2 | 服务离线，彻底的无法接收请求 |
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: integer
+                        title: 状态简码
+                        description: 0 正常 1 降级 2 离线
+                      remark:
+                        type: string
+                        title: 状态说明
+                    required:
+                      - status
+                      - remark
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/notice:
+    get:
+      summary: 获取系统公告
+      deprecated: false
+      description: 返回内容需要使用 Markdown 渲染器渲染。
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: string
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: 待填写
+                message: 获取公告成功
+          headers: {}
+      security:
+        - 用户 Token: []
+  /auth/popupNotice:
+    get:
+      summary: 获取重要公告
+      deprecated: false
+      description: |-
+        > **Beta feature** 这是一个测试功能，会在前端 `v5.14.6` 中引入
+
+        返回内容需要使用 Markdown 渲染器渲染。
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    title: 状态码
+                  data:
+                    type: string
+                    title: 数据
+                  message:
+                    type: string
+                    title: 提示
+                required:
+                  - code
+                  - data
+                  - message
+              example:
+                code: 200
+                data: 待填写，请点击右上角按钮关闭本公告
+                message: 获取弹窗公告成功
+          headers: {}
+      security:
+        - 用户 Token: []
+components:
+  schemas:
+    userInfo:
+      type: object
+      properties:
+        userId:
+          type: integer
+          title: 用户 ID
+        username:
+          type: string
+          title: 用户名
+        email:
+          type: string
+          title: 邮箱
+        group:
+          type: string
+          title: 用户组 ID
+        isRealname:
+          type: boolean
+          title: 是否实名
+        inBound:
+          type: integer
+          title: 入站带宽
+        maxProxies:
+          type: integer
+          title: 最大隧道数
+        outBound:
+          type: integer
+          title: 出站带宽
+        regTime:
+          type: integer
+          title: 注册时间
+        status:
+          type: integer
+          title: 账户状态
+          description: 0-正常 1-封禁 2-流量超限
+        todaySigned:
+          type: boolean
+          title: 签到状态
+          description: 'true: 已签到'
+        traffic:
+          type: integer
+          title: 流量
+        vipExpireTime:
+          type: integer
+          title: VIP 过期时间
+          description: 当前用户是 VIP 才会返回，早期用户可能没有该字段
+        usedProxies:
+          type: integer
+          title: 已使用隧道数
+        friendlyGroup:
+          type: string
+          title: 语义化用户组
+      required:
+        - email
+        - friendlyGroup
+        - group
+        - inBound
+        - isRealname
+        - maxProxies
+        - outBound
+        - regTime
+        - status
+        - traffic
+        - usedProxies
+        - userId
+        - username
+        - todaySigned
+      title: 用户信息
+    proxy:
+      type: object
+      properties:
+        proxyId:
+          type: integer
+          title: 隧道 ID
+        username:
+          type: string
+          title: 隧道所属用户名
+        proxyName:
+          type: string
+          title: 隧道名
+        proxyType:
+          description: 隧道类型（tcp/udp/http/https）
+          type: string
+          title: 隧道协议
+        isBanned:
+          description: 是否被封禁
+          type: boolean
+          title: 是否被封禁
+        isDisabled:
+          description: 是否被手动禁用
+          type: boolean
+          title: 是否被禁用
+        localIp:
+          description: 本地监听 IP
+          type: string
+          title: 本地地址
+        localPort:
+          description: 本地端口
+          type: integer
+          title: 本地端口
+        remotePort:
+          description: 远程端口
+          type: integer
+          title: 远程端口
+        nodeId:
+          description: 所属节点 ID
+          type: integer
+          title: 节点 ID
+        runId:
+          description: 格式：`<访问令牌>-<运行 ID>`，不存在即为`""`
+          type: string
+          title: 上次启动的运行 ID
+        isOnline:
+          description: 当前在线状态
+          type: boolean
+          title: 是否在线
+        domain:
+          description: 列表被文本化，需要额外处理，如[\"mefrp.com\"]
+          type: string
+          title: 远程节点域名
+        lastStartTime:
+          description: 不存在即为0
+          type: integer
+          title: 上次上线时间
+        lastCloseTime:
+          description: 不存在即为0
+          type: integer
+          title: 上次下线时间
+        clientVersion:
+          description: 客户端版本号
+          type: string
+          title: 客户端版本
+        proxyProtocolVersion:
+          description: 代理协议版本
+          type: string
+        useEncryption:
+          description: 是否启用传输加密
+          type: boolean
+          title: 数据是否加密
+        useCompression:
+          description: 是否启用传输压缩
+          type: boolean
+          title: 数据是否压缩
+        location:
+          description: 地理位置标签
+          type: string
+          title: Location 参数
+        accessKey:
+          type: string
+          title: 访问密钥
+          description: 访问密钥已回归
+        hostHeaderRewrite:
+          description: 不存在即为空（`""`）
+          type: string
+          title: 请求头重写
+        httpPlugin:
+          description: HTTP 插件名称
+          type: string
+        crtPath:
+          description: TLS 证书路径
+          type: string
+        keyPath:
+          description: TLS 私钥路径
+          type: string
+        requestHeaders:
+          type: object
+          properties: {}
+          description: 向内网服务回源时添加的请求头
+        httpUser:
+          description: HTTP Basic Auth 用户名
+          type: string
+        httpPassword:
+          description: HTTP Basic Auth 密码
+          type: string
+      required:
+        - proxyId
+        - username
+        - proxyName
+        - proxyType
+        - isBanned
+        - isDisabled
+        - localIp
+        - localPort
+        - remotePort
+        - nodeId
+        - runId
+        - isOnline
+        - domain
+        - lastStartTime
+        - lastCloseTime
+        - clientVersion
+        - proxyProtocolVersion
+        - useEncryption
+        - useCompression
+        - location
+        - accessKey
+        - hostHeaderRewrite
+        - httpPlugin
+        - crtPath
+        - keyPath
+        - requestHeaders
+        - httpUser
+        - httpPassword
+      title: 隧道数据
+  responses:
+    鉴权失败:
+      description: ''
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                title: 状态码
+                const: 401
+              data:
+                type: 'null'
+                title: 数据
+              message:
+                type: string
+                title: 消息
+                const: 用户 Token 为空或格式错误
+            required:
+              - code
+              - data
+              - message
+          examples:
+            异常示例:
+              summary: 异常示例
+              value:
+                code: 401
+                data: null
+                message: 用户 Token 为空或格式错误
+    参数有误:
+      description: ''
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:
+                type: integer
+                title: 状态码
+                const: 401
+              data:
+                type: 'null'
+                title: 数据
+              message:
+                type: string
+                title: 消息
+                const: 无效的请求数据
+            required:
+              - code
+              - data
+              - message
+          examples:
+            异常示例:
+              summary: 异常示例
+              value:
+                code: 400
+                data: null
+                message: 无效的请求数据
+  securitySchemes:
+    用户 Token:
+      type: http
+      scheme: bearer
+servers:
+  - url: https://api.mefrp.com/api
+    description: 正式环境
+security: []

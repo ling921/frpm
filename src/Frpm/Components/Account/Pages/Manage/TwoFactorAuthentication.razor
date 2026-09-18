@@ -1,0 +1,67 @@
+﻿@page "/Account/Manage/TwoFactorAuthentication"
+
+@using Microsoft.AspNetCore.Http.Features
+@using Microsoft.AspNetCore.Identity
+@using Frpm.Data
+
+
+<PageTitle>双重验证</PageTitle>
+
+<StatusMessage />
+<MudText Typo="Typo.h5" GutterBottom="true">双重验证</MudText>
+@if (canTrack)
+{
+    if (is2faEnabled)
+    {
+        if (recoveryCodesLeft == 0)
+        {
+            <div class="alert alert-danger">
+                <strong>没有剩余恢复代码。</strong>
+                <p>请先<a href="Account/Manage/GenerateRecoveryCodes">生成一组新的恢复代码</a>，才能使用恢复代码登录。</p>
+            </div>
+        }
+        else if (recoveryCodesLeft == 1)
+        {
+            <div class="alert alert-danger">
+                <strong>还剩 1 个恢复代码。</strong>
+                <p>建议<a href="Account/Manage/GenerateRecoveryCodes">生成一组新的恢复代码</a>。</p>
+            </div>
+        }
+        else if (recoveryCodesLeft <= 3)
+        {
+            <div class="alert alert-warning">
+                <strong>还剩 @recoveryCodesLeft 个恢复代码。</strong>
+                <p>建议<a href="Account/Manage/GenerateRecoveryCodes">生成一组新的恢复代码</a>。</p>
+            </div>
+        }
+
+        if (isMachineRemembered)
+        {
+            <form style="display: inline-block" @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
+                <AntiforgeryToken />
+                <button type="submit" class="btn btn-primary">忘记此浏览器</button>
+            </form>
+        }
+
+        <a href="Account/Manage/Disable2fa" class="btn btn-primary">关闭双重验证</a>
+        <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary">重新生成恢复代码</a>
+    }
+
+    <MudText Typo="Typo.h6" Class="mt-5">身份验证器应用</MudText>
+    @if (!hasAuthenticator)
+    {
+        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">添加身份验证器</a>
+    }
+    else
+    {
+        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">配置身份验证器</a>
+        <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary">重置身份验证器</a>
+    }
+}
+else
+{
+    <div class="alert alert-danger">
+        <strong>尚未接受隐私和 Cookie 政策。</strong>
+        <p>接受政策后才能启用双重验证。</p>
+    </div>
+}

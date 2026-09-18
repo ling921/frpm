@@ -1,0 +1,33 @@
+services:
+  frpm:
+    # 正式部署默认使用 Docker Hub 最新稳定镜像。
+    image: tomcn/frpm:latest
+    container_name: frpm
+    pull_policy: always
+    restart: unless-stopped
+    ports:
+      # 可选：修改左侧端口以更换宿主机访问端口，例如 "9000:8080"。
+      - "8080:8080"
+    volumes:
+      # 必需：持久化数据库、Data Protection 密钥、CLI 包与运行日志。
+      - frpm-data:/data
+    environment:
+      # 可选：位于反向代理后方时启用转发头处理。
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      # 可选：SQLite 连接字符串；数据库文件应位于持久化卷中。
+      ConnectionStrings__DefaultConnection: "Data Source=/data/frpm.db"
+      # 可选：数据根目录；如需修改，请同步调整上方卷挂载路径。
+      Frpm__Storage__DataDirectory: "/data"
+      # 可选：日志保留天数，默认 30。
+      # Frpm__Storage__LogRetentionDays: "30"
+      # 可选：日志最大总容量（字节），默认 512 MiB。
+      # Frpm__Storage__MaxLogBytes: "536870912"
+      # 可选：单个 CLI 包最大大小（字节），默认 256 MiB。
+      # Frpm__Storage__MaxPackageBytes: "268435456"
+    extra_hosts:
+      # 可选但建议保留：允许容器中的隧道访问 Docker 宿主机服务。
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  # Docker 管理的持久化卷。不要让多个 FRPM 实例同时共享此卷。
+  frpm-data:

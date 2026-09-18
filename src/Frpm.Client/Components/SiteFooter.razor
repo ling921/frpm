@@ -1,0 +1,24 @@
+@using System.Reflection
+
+<footer class="site-footer">
+    <span>FRPM · 第三方 FRP 管理平台 · <a href="@ReleaseUrl" target="_blank" rel="noopener noreferrer">v@(ApplicationVersion)</a></span>
+    <span class="site-footer-separator" aria-hidden="true">·</span>
+    <span>Powered by <a href="https://dotnet.microsoft.com/apps/aspnet" target="_blank" rel="noopener noreferrer">ASP.NET Core</a> &amp; <a href="https://mudblazor.com/" target="_blank" rel="noopener noreferrer">MudBlazor</a></span>
+    <span class="site-footer-separator" aria-hidden="true">·</span>
+    <span>© @DateTime.UtcNow.Year FRPM Contributors</span>
+    <span class="site-footer-separator" aria-hidden="true">·</span>
+    <a href="https://github.com/ling921/frpm" target="_blank" rel="noopener noreferrer">GitHub</a>
+</footer>
+
+@code {
+    private static string ApplicationVersion =>
+        typeof(SiteFooter).Assembly
+            .GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), inherit: false)
+            .OfType<AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion
+            ?.Split('+', 2)[0]
+        ?? typeof(SiteFooter).Assembly.GetName().Version?.ToString()
+        ?? "未知";
+
+    private static string ReleaseUrl => $"https://github.com/ling921/frpm/releases/tag/v{ApplicationVersion}";
+}

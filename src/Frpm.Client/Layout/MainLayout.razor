@@ -1,0 +1,86 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider @ref="_themeProvider" Theme="@_theme" @bind-IsDarkMode="_isDarkMode"
+                  ObserveSystemDarkModeChange="@(_preferences.ThemeMode == "auto")" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudLayout Class="app-layout">
+    <MudAppBar Elevation="0" Color="Color.Surface">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" OnClick="ToggleDrawer" />
+        <MudHidden Breakpoint="Breakpoint.MdAndUp">
+            <div class="frpm-brand ml-2">
+                <img src="frpm-mark.svg" class="frpm-logo" alt="FRPM" />
+                <MudText Typo="Typo.h6" Class="frpm-wordmark">FRPM</MudText>
+            </div>
+        </MudHidden>
+        @if (!_drawerOpen)
+        {
+            <MudHidden Breakpoint="Breakpoint.SmAndDown">
+                <div class="frpm-brand ml-2">
+                    <img src="frpm-mark.svg" class="frpm-logo" alt="FRPM" />
+                    <MudText Typo="Typo.h6" Class="frpm-wordmark">FRPM</MudText>
+                </div>
+            </MudHidden>
+        }
+        <MudSpacer />
+        <MudTooltip Text="@ThemeToggleTooltip">
+            <MudIconButton Icon="@ThemeModeIcon" OnClick="ToggleThemeAsync" />
+        </MudTooltip>
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <MudMenu Dense="true"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight"
+                         PopoverClass="user-menu-popover">
+                    <ActivatorContent>
+                        <button type="button" class="user-menu-trigger" @onclick="context.ToggleAsync"
+                                aria-label="打开用户菜单" title="@auth.User.Identity?.Name">
+                            <MudAvatar Color="Color.Primary" Size="Size.Medium" Variant="Variant.Filled">
+                                @GetAccountInitial(auth.User.Identity?.Name)
+                            </MudAvatar>
+                        </button>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <div class="user-menu-summary">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">当前账号</MudText>
+                            <MudText Typo="Typo.body2" Class="text-truncate">@auth.User.Identity?.Name</MudText>
+                        </div>
+                        <MudDivider />
+                        <MudMenuItem Href="Account/Manage" ForceLoad="true" Icon="@Icons.Material.Filled.ManageAccounts">
+                            账号设置
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Palette" OnClick="OpenThemePreferencesAsync">
+                            外观设置
+                        </MudMenuItem>
+                        <MudDivider />
+                        <form action="Account/Logout" method="post" class="user-menu-logout">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ReturnUrl" value="" />
+                            <button type="submit" class="user-menu-item user-menu-item-danger">
+                                <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Medium" />
+                                <span>退出登录</span>
+                            </button>
+                        </form>
+                    </ChildContent>
+                </MudMenu>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Login" Href="Account/Login">登录</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" Variant="DrawerVariant.Responsive" Breakpoint="Breakpoint.Md" Elevation="1">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent Class="pt-16 app-main-content">
+        <div class="app-page-body">
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4 pa-md-6">@Body</MudContainer>
+        </div>
+        <SiteFooter />
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    页面发生错误。<a href="." class="reload">重新加载</a><span class="dismiss">🗙</span>
+</div>

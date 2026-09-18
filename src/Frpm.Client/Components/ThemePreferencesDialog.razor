@@ -1,0 +1,54 @@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">外观偏好</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="string" Label="主题模式" @bind-Value="_themeMode" Variant="Variant.Outlined">
+                <MudSelectItem Value="@("auto")">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.BrightnessAuto" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">跟随系统</MudText>
+                    </MudStack>
+                </MudSelectItem>
+                <MudSelectItem Value="@("light")">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.LightMode" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">浅色</MudText>
+                    </MudStack>
+                </MudSelectItem>
+                <MudSelectItem Value="@("dark")">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.DarkMode" Size="Size.Small" />
+                        <MudText Typo="Typo.body2">深色</MudText>
+                    </MudStack>
+                </MudSelectItem>
+            </MudSelect>
+            @if (_themeMode == "auto")
+            {
+                <MudAlert Severity="Severity.Info" Dense>
+                    当前系统为@(EditingDark ? "深色" : "浅色")环境，下面只调整对应的配色；系统主题变化时会自动使用另一套配色。
+                </MudAlert>
+            }
+            <MudTextField Label="@(EditingDark ? "深色主题主色" : "浅色主题主色")"
+                          @bind-Value="CurrentPrimaryColor" Variant="Variant.Outlined"
+                          HelperText="使用 #RRGGBB 格式，例如 #5468ff" />
+            <MudTextField Label="@(EditingDark ? "深色主题辅助色" : "浅色主题辅助色")"
+                          @bind-Value="CurrentSecondaryColor" Variant="Variant.Outlined"
+                          HelperText="使用 #RRGGBB 格式，例如 #52606d" />
+            <MudStack Row AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.caption">颜色预览</MudText>
+                <MudAvatar Style="@($"background-color:{CurrentPrimaryColor}")" Size="Size.Small" />
+                <MudAvatar Style="@($"background-color:{CurrentSecondaryColor}")" Size="Size.Small" />
+            </MudStack>
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error" Dense>@_error</MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">取消</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Save">保存</MudButton>
+    </DialogActions>
+</MudDialog>

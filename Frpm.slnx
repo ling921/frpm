@@ -1,0 +1,39 @@
+<Solution>
+  <Folder Name="/docs/Lolia Frp/">
+    <File Path="docs/providers/loliafrp/openapi.yaml" />
+  </Folder>
+  <Folder Name="/docs/ME Frp/">
+    <File Path="docs/providers/mefrp/openapi.yml" />
+  </Folder>
+  <Folder Name="/docs/Sakura Frp/">
+    <File Path="docs/providers/sakurafrp/openapi.yaml" />
+  </Folder>
+  <Folder Name="/github workflows/">
+    <File Path=".github/workflows/docker-publish.yml" />
+    <File Path=".github/workflows/test.yml" />
+  </Folder>
+  <Folder Name="/Solution items/">
+    <File Path=".dockerignore" />
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="docker-compose.yml" />
+    <File Path="Dockerfile" />
+    <File Path="LICENSE" />
+    <File Path="NuGet.Config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/providers/mefrp/openapi.yml" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/Directory.Build.props" />
+    <Project Path="src/Frpm.Abstractions/Frpm.Abstractions.csproj" Id="5cec2f4b-1526-40e8-b2a8-2d79cce14a23" />
+    <Project Path="src/Frpm.Client/Frpm.Client.csproj" />
+    <Project Path="src/Frpm.Domain/Frpm.Domain.csproj" Id="4ca5e938-8a80-411c-8fce-830ae794f4de" />
+    <Project Path="src/Frpm.Infrastructure/Frpm.Infrastructure.csproj" />
+    <Project Path="src/Frpm/Frpm.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Frpm.Infrastructure.Tests/Frpm.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

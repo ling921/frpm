@@ -1,0 +1,29 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="@Theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout Class="app-layout">
+    <MudAppBar Elevation="0" Color="Color.Surface">
+        <MudLink Href="/" Underline="Underline.None" Color="Color.Inherit">
+            <div class="frpm-brand">
+                <img src="frpm-mark.svg" class="frpm-logo" alt="FRPM" />
+                <MudText Typo="Typo.h6" Class="frpm-wordmark">FRPM</MudText>
+            </div>
+        </MudLink>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized Context="auth">
+                <MudText Typo="Typo.body2">@auth.User.Identity?.Name</MudText>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudMainContent Class="account-main">
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="pt-12 px-4 account-content">
+            <div class="account-page-body">@Body</div>
+            <SiteFooter />
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

@@ -1,0 +1,17 @@
+.account-main {
+    min-height: 100vh;
+    padding-top: 64px;
+    background:
+        radial-gradient(circle at 15% 10%, rgba(var(--mud-palette-primary-rgb), .12), transparent 32rem),
+        var(--mud-palette-background);
+}
+
+.account-content {
+    min-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+}
+
+.account-page-body {
+    flex: 1;
+}

@@ -1,0 +1,265 @@
+html, body {
+    margin: 0;
+    height: 100%;
+    min-height: 100%;
+    min-height: 100dvh;
+    font-family: Roboto, "Segoe UI", sans-serif;
+}
+
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.frpm-logo {
+    width: 30px;
+    height: 30px;
+    max-width: 30px;
+    max-height: 30px;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.frpm-brand {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    gap: 8px;
+    transform: translateY(-3px);
+}
+
+.frpm-brand .frpm-logo {
+    display: block;
+    flex: 0 0 30px;
+}
+
+.frpm-wordmark {
+    display: block;
+    margin: 0;
+    line-height: 30px;
+}
+
+.app-layout {
+    height: auto;
+    min-height: 100dvh;
+}
+
+/*
+ * These classes are applied to MudBlazor component roots. They must be global:
+ * CSS isolation attributes are not forwarded by those component roots.
+ */
+.mud-layout {
+    height: 100dvh;
+}
+
+.app-main-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+}
+
+.app-page-body {
+    display: flex;
+    flex: 1 0 auto;
+    min-height: 0;
+}
+
+.app-page-body > .mud-container {
+    width: 100%;
+}
+
+.account-main {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding-top: 64px;
+}
+
+.account-content {
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    min-height: calc(100dvh - 64px);
+}
+
+.account-page-body {
+    flex: 1 0 auto;
+}
+
+.site-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 16px;
+    gap: 0 6px;
+    color: var(--mud-palette-text-secondary);
+    font-size: .7rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.site-footer a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.site-footer a:hover {
+    color: var(--mud-palette-primary);
+}
+
+.runs-layout {
+    --runs-panel-height: calc(100dvh - 230px);
+}
+
+.runs-list-column,
+.runs-log-column {
+    height: var(--runs-panel-height);
+    min-height: 420px;
+}
+
+.runs-list {
+    height: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.runs-log-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+@media (max-width: 959.98px) {
+    .runs-list-column {
+        height: 280px;
+        min-height: 280px;
+    }
+
+    .runs-log-column {
+        height: 520px;
+        min-height: 420px;
+    }
+}
+
+/* Identity scaffold pages that have not yet needed a dedicated MudBlazor control. */
+.account-main .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.account-main [class*="col-"] {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.account-main .form-floating,
+.account-main .mb-3 {
+    margin-bottom: 16px;
+}
+
+.account-main .form-control {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 52px;
+    padding: 14px 16px;
+    color: var(--mud-palette-text-primary);
+    font: inherit;
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 10px;
+    outline: none;
+}
+
+.account-main .form-control:focus {
+    border-color: var(--mud-palette-primary);
+    box-shadow: 0 0 0 1px var(--mud-palette-primary);
+}
+
+.account-main .account-field label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.account-main .account-checkbox {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    gap: 8px;
+    color: var(--mud-palette-text-primary);
+    cursor: pointer;
+}
+
+.account-main .account-checkbox input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--mud-palette-primary);
+    cursor: pointer;
+}
+
+.account-main .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 8px 18px;
+    color: var(--mud-palette-primary-text);
+    font: 500 0.875rem/1.5 Roboto, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+    background: var(--mud-palette-primary);
+    border: 0;
+    border-radius: 10px;
+}
+
+.account-main .btn-danger {
+    background: var(--mud-palette-error);
+}
+
+.account-main .btn-link {
+    color: var(--mud-palette-primary);
+    background: transparent;
+}
+
+.account-main .w-100 {
+    width: 100%;
+}
+
+.account-main .text-danger,
+.account-main .validation-message {
+    color: var(--mud-palette-error);
+}
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 2000;
+    padding: 0.8rem 1.25rem;
+    color: var(--mud-palette-error-text);
+    background: var(--mud-palette-error);
+    box-shadow: var(--mud-elevation-4);
+}
+
+#blazor-error-ui .dismiss {
+    position: absolute;
+    right: 1rem;
+    cursor: pointer;
+}
+
+@media (max-width: 600px) {
+    .mud-main-content .mud-container {
+        padding: 16px !important;
+    }
+}

@@ -1,0 +1,26 @@
+﻿@page "/Account/Manage"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Frpm.Data
+
+
+<PageTitle>个人资料</PageTitle>
+
+<MudText Typo="Typo.h5" GutterBottom="true">个人资料</MudText>
+<StatusMessage />
+
+<div class="row">
+    <div class="col-xl-6">
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <MudStack Spacing="3">
+                <MudTextField Value="@username" Label="用户名" Variant="Variant.Outlined" ReadOnly="true" />
+                <MudTextField @bind-Value="Input.PhoneNumber" Label="手机号" Variant="Variant.Outlined" Placeholder="请输入手机号" />
+                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">保存</MudButton>
+            </MudStack>
+        </EditForm>
+    </div>
+</div>

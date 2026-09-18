@@ -1,0 +1,17 @@
+﻿global using Frpm.Client;
+global using Frpm.Client.Components;
+global using System.Net.Http;
+global using System.Net.Http.Json;
+global using Microsoft.AspNetCore.Components;
+global using Microsoft.AspNetCore.Components.Authorization;
+global using Microsoft.AspNetCore.Components.Forms;
+global using Microsoft.AspNetCore.Components.Routing;
+global using Microsoft.AspNetCore.Components.Web;
+global using Microsoft.AspNetCore.Components.Web.Virtualization;
+global using Microsoft.JSInterop;
+global using MudBlazor;
+global using MudBlazor.Services;
+global using Frpm.Abstractions.Models;
+global using Frpm.Abstractions.Services;
+global using Frpm.Domain.Enums;
+global using Ling.RemoteServices.Models;
