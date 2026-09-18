@@ -37,6 +37,88 @@ docker compose up -d
 
 打开 `http://localhost:8080`。
 
+## 原生部署（Windows / Linux）
+
+不使用 Docker 时，可从 [Releases](https://github.com/ling921/frpm/releases) 下载与服务器架构匹配的自包含包。发布包无需安装 .NET Runtime：
+
+| 系统与架构 | 文件 |
+| --- | --- |
+| Windows x64 | `frpm-<版本>-win-x64.zip` |
+| Linux x64 | `frpm-<版本>-linux-x64.tar.gz` |
+| Linux ARM64 | `frpm-<版本>-linux-arm64.tar.gz` |
+
+解压后请始终从 `FRPM` 目录启动，并将该目录及其中的 `data` 目录一并保留。升级时覆盖程序文件即可；不要删除 `data`，其中包含数据库、加密密钥、CLI 文件和运行日志。
+
+### 启动
+
+Windows：双击 `start.bat`，或在 PowerShell 中执行：
+
+```powershell
+cd .\FRPM
+.\Frpm.exe
+```
+
+Linux：
+
+```bash
+tar -xzf frpm-<版本>-linux-x64.tar.gz
+cd FRPM
+chmod +x Frpm start.sh
+./start.sh
+```
+
+默认监听 `http://+:8080`。首次启动后访问 `http://服务器地址:8080`。
+
+### 修改配置
+
+虽然主程序采用单文件发布，`appsettings.json` 仍作为程序同目录的**外置配置文件**保留，可在停止 FRPM 后直接编辑。推荐在同目录新建 `appsettings.Production.json`，仅写入需要覆盖的项，升级时便不必覆盖默认配置。
+
+例如，将数据保存到指定目录并将 SQLite 数据库一同迁移：
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=D:\\FRPM-Data\\frpm.db"
+  },
+  "Frpm": {
+    "Storage": {
+      "DataDirectory": "D:\\FRPM-Data"
+    }
+  }
+}
+```
+
+Linux 路径示例：
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=/var/lib/frpm/frpm.db"
+  },
+  "Frpm": {
+    "Storage": {
+      "DataDirectory": "/var/lib/frpm"
+    }
+  }
+}
+```
+
+修改端口或监听地址时，请使用环境变量启动。Windows：
+
+```powershell
+$env:ASPNETCORE_URLS = "http://0.0.0.0:9000"
+.\Frpm.exe
+```
+
+Linux：
+
+```bash
+ASPNETCORE_URLS=http://0.0.0.0:9000 ./Frpm
+```
+
+> [!IMPORTANT]
+> 数据目录内含用于保护供应商凭据的密钥。迁移、备份或升级时，数据库文件和整个数据目录必须一起保留；丢失密钥后，已保存的凭据无法恢复。
+
 ### 初始账号
 
 ```text
