@@ -6,6 +6,13 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(PublishNativeRelease)' == 'true'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <UseAppHost>true</UseAppHost>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Frpm.Client\Frpm.Client.csproj" />
     <ProjectReference Include="..\Frpm.Infrastructure\Frpm.Infrastructure.csproj" />

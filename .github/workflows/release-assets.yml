@@ -54,10 +54,7 @@ jobs:
           --configuration Release
           --runtime ${{ matrix.rid }}
           --self-contained true
-          --property:PublishSingleFile=true
-          --property:UseAppHost=true
-          --property:IncludeNativeLibrariesForSelfExtract=true
-          --property:PublishTrimmed=false
+          --property:PublishNativeRelease=true
           --output publish/${{ matrix.rid }}/FRPM
 
       - name: Add startup helper
