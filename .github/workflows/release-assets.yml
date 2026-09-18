@@ -61,9 +61,9 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.rid }}" == win-* ]]; then
-            printf '@echo off\r\nset "ASPNETCORE_URLS=http://+:8080"\r\nFrpm.exe\r\n' > publish/${{ matrix.rid }}/FRPM/start.bat
+            printf '@echo off\r\nFrpm.exe\r\n' > publish/${{ matrix.rid }}/FRPM/start.bat
           else
-            printf '#!/usr/bin/env sh\nset -eu\nexport ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://+:8080}"\nexec ./Frpm\n' > publish/${{ matrix.rid }}/FRPM/start.sh
+            printf '#!/usr/bin/env sh\nset -eu\nexec ./Frpm\n' > publish/${{ matrix.rid }}/FRPM/start.sh
             chmod +x publish/${{ matrix.rid }}/FRPM/start.sh
           fi
 
