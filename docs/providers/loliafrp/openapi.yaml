@@ -1,0 +1,1759 @@
+openapi: 3.0.1
+info:
+  title: 洛链映射 API
+  description: ''
+  version: 1.0.0
+tags: []
+paths:
+  /user/info:
+    get:
+      summary: 获取用户信息
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      avatar:
+                        type: string
+                      bandwidth_limit:
+                        type: integer
+                      created_at:
+                        type: string
+                      email:
+                        type: string
+                      has_kyc:
+                        type: boolean
+                      id:
+                        type: integer
+                      is_banned:
+                        type: boolean
+                      kyc_count:
+                        type: integer
+                      kyc_status:
+                        type: string
+                      max_tunnel_count:
+                        type: integer
+                      role:
+                        type: string
+                      today_checked:
+                        type: boolean
+                      traffic_limit:
+                        $ref: '#/components/schemas/long'
+                      traffic_used:
+                        $ref: '#/components/schemas/long'
+                      username:
+                        type: string
+                      is_baned:
+                        type: boolean
+                    required:
+                      - avatar
+                      - bandwidth_limit
+                      - created_at
+                      - email
+                      - has_kyc
+                      - id
+                      - is_banned
+                      - kyc_count
+                      - kyc_status
+                      - max_tunnel_count
+                      - role
+                      - today_checked
+                      - traffic_limit
+                      - traffic_used
+                      - username
+                      - is_baned
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 获取成功
+                data:
+                  avatar: >-
+                    https://cn.cravatar.com/avatar/e4d49a63f94851590b66ea8b898556d5?s=180&d=mp&r=g
+                  bandwidth_limit: 10
+                  created_at: '2025-11-22T01:08:11.376398+08:00'
+                  email: 114514@qq.com
+                  has_kyc: false
+                  id: 1
+                  is_banned: false
+                  kyc_count: 0
+                  kyc_status: certifying
+                  max_tunnel_count: 10
+                  role: admin
+                  today_checked: false
+                  traffic_limit: 526133493760
+                  traffic_used: 0
+                  username: test
+          headers: {}
+      security: []
+  /user/traffic/tunnel/{tunnel_id}:
+    get:
+      summary: 获取单个隧道的实时数据
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: tunnel_id
+          in: path
+          description: ''
+          required: true
+          example: 946978624732161e390349
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      tunnel_name:
+                        type: string
+                      node_id:
+                        type: string
+                      traffic_in:
+                        $ref: '#/components/schemas/long'
+                      traffic_out:
+                        $ref: '#/components/schemas/long'
+                      total_traffic:
+                        $ref: '#/components/schemas/long'
+                      connections:
+                        type: integer
+                      last_update:
+                        type: string
+                    required:
+                      - tunnel_name
+                      - node_id
+                      - traffic_in
+                      - traffic_out
+                      - total_traffic
+                      - connections
+                      - last_update
+                required:
+                  - status
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /user/traffic/stats:
+    get:
+      summary: 获取用户流量统计信息
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      user_id:
+                        type: string
+                      username:
+                        type: string
+                      traffic_limit:
+                        $ref: '#/components/schemas/long'
+                      traffic_used:
+                        $ref: '#/components/schemas/long'
+                      traffic_remaining:
+                        $ref: '#/components/schemas/long'
+                    required:
+                      - user_id
+                      - username
+                      - traffic_limit
+                      - traffic_used
+                      - traffic_remaining
+                required:
+                  - status
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /user/traffic/daily:
+    get:
+      summary: 获取每日流量统计（包含各隧道流量）
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: days
+          in: query
+          description: ''
+          required: false
+          example: '7'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      daily_stats:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            tunnel_stats:
+                              type: array
+                              items:
+                                type: string
+                            total_in:
+                              $ref: '#/components/schemas/long'
+                            total_out:
+                              $ref: '#/components/schemas/long'
+                            total_traffic:
+                              $ref: '#/components/schemas/long'
+                          required:
+                            - date
+                            - tunnel_stats
+                            - total_in
+                            - total_out
+                            - total_traffic
+                      days:
+                        type: integer
+                      user_id:
+                        type: string
+                    required:
+                      - daily_stats
+                      - days
+                      - user_id
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 获取成功
+                data:
+                  daily_stats:
+                    - date: '2026-02-10T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                    - date: '2026-02-11T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                    - date: '2026-02-12T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                    - date: '2026-02-13T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                    - date: '2026-02-14T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                    - date: '2026-02-15T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                    - date: '2026-02-16T00:00:00Z'
+                      tunnel_stats: []
+                      total_in: 0
+                      total_out: 0
+                      total_traffic: 0
+                  days: 7
+                  user_id: '1'
+          headers: {}
+      security: []
+  /user/traffic/tunnels:
+    get:
+      summary: 获取用户各隧道的流量信息
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: days
+          in: query
+          description: ''
+          required: false
+          example: '2'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                      days:
+                        type: integer
+                      end_time:
+                        type: string
+                      start_time:
+                        type: string
+                      tunnels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            tunnel_name:
+                              type: string
+                            node_id:
+                              type: string
+                            total_in:
+                              $ref: '#/components/schemas/long'
+                            total_out:
+                              $ref: '#/components/schemas/long'
+                            total_traffic:
+                              $ref: '#/components/schemas/long'
+                            max_connections:
+                              type: integer
+                            remark:
+                              type: string
+                          required:
+                            - tunnel_name
+                            - node_id
+                            - total_in
+                            - total_out
+                            - total_traffic
+                            - max_connections
+                            - remark
+                      user_id:
+                        type: string
+                    required:
+                      - count
+                      - days
+                      - end_time
+                      - start_time
+                      - tunnels
+                      - user_id
+                required:
+                  - code
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /user/tunnel:
+    post:
+      summary: 创建隧道
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                node_id:
+                  type: integer
+                type:
+                  type: string
+                local_ip:
+                  type: string
+                local_port:
+                  type: integer
+                remote_port:
+                  type: integer
+                custom_domain:
+                  type: string
+                remark:
+                  type: string
+              required:
+                - node_id
+                - type
+                - local_ip
+                - local_port
+                - remote_port
+                - custom_domain
+                - remark
+            example:
+              node_id: 1
+              type: tcp
+              local_ip: 127.0.0.1
+              local_port: 11451
+              remote_port: 11451
+              custom_domain: ''
+              remark: Test-C
+        required: true
+      responses:
+        '401':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                required:
+                  - code
+                  - msg
+          headers: {}
+      security: []
+    get:
+      summary: 获取用户隧道列表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: page
+          in: query
+          description: ''
+          required: false
+          example: '1'
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: ''
+          required: false
+          example: '10'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      list:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            auto_tls:
+                              type: boolean
+                            bandwidth_limit:
+                              type: integer
+                            client_version:
+                              type: string
+                            custom_domain:
+                              type: string
+                            id:
+                              type: integer
+                            local_ip:
+                              type: string
+                            local_port:
+                              type: integer
+                            name:
+                              type: string
+                            node_address:
+                              type: string
+                            node_id:
+                              type: integer
+                            node_name:
+                              type: string
+                            remark:
+                              type: string
+                            remote_port:
+                              type: integer
+                            status:
+                              type: string
+                            type:
+                              type: string
+                          required:
+                            - bandwidth_limit
+                            - custom_domain
+                            - id
+                            - local_ip
+                            - local_port
+                            - name
+                            - node_id
+                            - remark
+                            - remote_port
+                            - status
+                            - type
+                      page:
+                        type: integer
+                      total:
+                        type: integer
+                      total_page:
+                        type: integer
+                    required:
+                      - limit
+                      - list
+                      - page
+                      - total
+                      - total_page
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 获取成功
+                data:
+                  limit: 10
+                  list:
+                    - auto_tls: true
+                      bandwidth_limit: 10
+                      client_version: ''
+                      custom_domain: pysio.tel
+                      id: 20
+                      local_ip: 127.0.0.1
+                      local_port: 8081
+                      name: 4861097abed145b78cd7caadb9433239
+                      node_address: 127.0.0.1
+                      node_id: 1
+                      node_name: Test-node
+                      remark: '114514'
+                      remote_port: 80
+                      status: inactive
+                      type: http
+                  page: 1
+                  total: 5
+                  total_page: 1
+          headers: {}
+      security: []
+  /user/tunnel/{tunnel_name}:
+    get:
+      summary: 获取隧道详情
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: tunnel_name
+          in: path
+          description: ''
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      bandwidth_limit:
+                        type: integer
+                      client_version:
+                        type: string
+                      created_at:
+                        type: string
+                      custom_domain:
+                        type: string
+                      id:
+                        type: integer
+                      local_ip:
+                        type: string
+                      local_port:
+                        type: integer
+                      name:
+                        type: string
+                      node_address:
+                        type: string
+                      node_id:
+                        type: integer
+                      node_name:
+                        type: string
+                      remark:
+                        type: string
+                      remote_port:
+                        type: integer
+                      status:
+                        type: string
+                      tunnel_token:
+                        type: string
+                      type:
+                        type: string
+                      auto_tls:
+                        type: boolean
+                    required:
+                      - bandwidth_limit
+                      - client_version
+                      - created_at
+                      - custom_domain
+                      - id
+                      - local_ip
+                      - local_port
+                      - name
+                      - node_address
+                      - node_id
+                      - node_name
+                      - remark
+                      - remote_port
+                      - status
+                      - tunnel_token
+                      - type
+                      - auto_tls
+                required:
+                  - code
+                  - msg
+                  - data
+          headers: {}
+      security: []
+    delete:
+      summary: 删除隧道
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: tunnel_name
+          in: path
+          description: ''
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                    required:
+                      - message
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 删除成功
+                data:
+                  message: 隧道已删除
+          headers: {}
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: 'null'
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 400
+                msg: 隧道名称不能为空
+                data: null
+          headers: {}
+        '404':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: 'null'
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 404
+                msg: 隧道不存在
+                data: null
+          headers: {}
+      security: []
+    put:
+      summary: 编辑隧道信息
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: tunnel_name
+          in: path
+          description: ''
+          required: true
+          example: 4861097abed145b78cd7caadb9433239
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              local_ip: 127.0.0.1
+              local_port: 8080
+              custom_domain: demo.example.com
+              remark: my tunnel
+              config:
+                auto_tls: true
+                proxy_protocol_version: v2
+                protocol: tcp
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      auto_tls:
+                        type: boolean
+                      custom_domain:
+                        type: string
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      node_id:
+                        type: integer
+                      status:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - auto_tls
+                      - custom_domain
+                      - id
+                      - name
+                      - node_id
+                      - status
+                      - type
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: Auto TLS 已开启
+                data:
+                  auto_tls: true
+                  custom_domain: 114514.com
+                  id: 20
+                  name: 4861097abed145b78cd7caadb9433239
+                  node_id: 1
+                  status: inactive
+                  type: http
+          headers: {}
+      security: []
+  /user/frpc/config:
+    get:
+      summary: 获取 frpc config
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: tunnel
+          in: query
+          description: ''
+          required: false
+          example: 946978624732161e390349
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: string
+                      lolia_config:
+                        type: string
+                    required:
+                      - config
+                required:
+                  - code
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /tunnel/frpc/config:
+    get:
+      summary: token 获取 frpc config（无需 oauth 凭据）
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: token
+          in: query
+          description: ''
+          required: false
+          example: 114514asdfghjkl
+          schema:
+            type: string
+        - name: id
+          in: query
+          description: ''
+          required: false
+          example: '1'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      config:
+                        type: string
+                      node_name:
+                        type: string
+                      tunnel_remark:
+                        type: string
+                    required:
+                      - config
+                      - node_name
+                      - tunnel_remark
+                required:
+                  - code
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /user/domain:
+    get:
+      summary: 获取域名列表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      domains:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            domain:
+                              type: string
+                            is_verified:
+                              type: boolean
+                            status:
+                              type: string
+                            verification_subdomain:
+                              type: string
+                            verification_token:
+                              type: string
+                            domain_connect_url:
+                              type: string
+                            has_beian:
+                              type: boolean
+                            expires_at:
+                              type: string
+                            created_at:
+                              type: string
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                    required:
+                      - domains
+                      - total
+                      - page
+                      - limit
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 获取成功
+                data:
+                  domains:
+                    - id: 9
+                      domain: awa.fan
+                      is_verified: false
+                      status: pending
+                      verification_subdomain: lolia_bvglr4b7.awa.fan
+                      verification_token: zdy2mfgq0z933wb6
+                      domain_connect_url: >-
+                        https://dash.cloudflare.com/domainconnect/v2/domainTemplates/providers/lolia.link/services/verify-domain/apply?domain=awa.fan&domain-verify-key=zdy2mfgq0z933wb6&domain-verify-name=bvglr4b7&key=_dck1&redirect_uri=https%3A%2F%2Fdash.lolia.link%2Fdash%2Fdomain&sigts=1774972339&sig=bZJxmwGzShiLkMirT%2BLnapn64RKV%2FHtLmLLqfudojnzbbvzIbOdG%2FTf6k6eE0T0Xlu%2FxijRIgNWf%2FfzP82k7P%2BwepkeblI5TgR5BWHW0MOsK025vApju%2FTqKtDuaMtl8N0oY415NchA3PetknU3FGqhPbRw3kMQRQUvFIU24J0br2AStBMu4Mb9iYs3pcg6bzB9vq3FSK1Kvs5O65Gf1PtnJJ%2FoNmtzjik13tgzWJk8gIq4viyUo1BbQHGl8RSB5OgKtudXvBuDtpSLq2h3Cm5sJ6SYs9kmQ0D9CcXIMzsF9%2BY9JW965Lw0ok93qNIwo%2F%2BODTYMv%2FxmUPA3hWxwWaQ%3D%3D
+                      has_beian: false
+                      expires_at: '2026-04-01T23:07:09+08:00'
+                      created_at: '2026-03-31T23:07:09+08:00'
+                  total: 1
+                  page: 1
+                  limit: 10
+          headers: {}
+      security: []
+    post:
+      summary: 添加域名
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              domain: pysio.online
+              remark: 测试
+        required: true
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      created_at:
+                        type: string
+                      domain:
+                        type: string
+                      domain_connect_url:
+                        type: string
+                      expires_at:
+                        type: string
+                      id:
+                        type: integer
+                      status:
+                        type: string
+                      verification_subdomain:
+                        type: string
+                      verification_token:
+                        type: string
+                    required:
+                      - created_at
+                      - domain
+                      - domain_connect_url
+                      - expires_at
+                      - id
+                      - status
+                      - verification_subdomain
+                      - verification_token
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 201
+                msg: 域名添加成功
+                data:
+                  created_at: '2026-03-31T23:53:12+08:00'
+                  domain: pysio.online
+                  domain_connect_url: >-
+                    https://dash.cloudflare.com/domainconnect/v2/domainTemplates/providers/lolia.link/services/verify-domain/apply?domain=pysio.online&domain-verify-key=nqtetu77j9swtsos&domain-verify-name=7uustjw2&key=_dck1&redirect_uri=https%3A%2F%2Fdash.lolia.link%2Fdash%2Fdomain&sigts=1774972392&sig=fzH2NT6OtGsA4kBFwZICB3gxN90q%2F0b6nktK%2BG2P%2FOEDAAsKcI37fXIEUT4Z0Ha0ZxyZ0E3OLI8A52XEoYHj%2B6LYrdlpWWV9gTwFW%2BoI32kDkS%2B0OGn1f6QVSABq%2FHZeVOTu9PBbiIcU8BqIFrkGadSDaevIyTaaQ9nSGP9N9ZikfrpGx3CfdwGjobtP4aVEXQPelk9HqWHuRjOMM0LWFLDHfOf4U%2BPKpXun6EStnzRk%2FSVWCRD4lgHI%2FNkIFfD2EnTBgkwSQPc%2FiW%2Bp%2F%2BPCm2jIgojPHC0u0IyaEe1qyyphUp4eeiCZHkMkdoGv8ZhgBUXlFIjnZw76WKahSiguCA%3D%3D
+                  expires_at: '2026-04-01T23:53:12+08:00'
+                  id: 11
+                  status: pending
+                  verification_subdomain: lolia_7uustjw2.pysio.online
+                  verification_token: nqtetu77j9swtsos
+          headers: {}
+      security: []
+  /user/domain/verify:
+    post:
+      summary: 验证域名
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              domain: pysio.tel
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      domain:
+                        type: string
+                      is_verified:
+                        type: boolean
+                      status:
+                        type: string
+                      verified_at:
+                        type: string
+                    required:
+                      - domain
+                      - is_verified
+                      - status
+                      - verified_at
+                required:
+                  - code
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /user/domain/{domain_id}:
+    delete:
+      summary: 删除域名
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: domain_id
+          in: path
+          description: ''
+          required: true
+          example: '4'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/octet-stream:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /user/nodes:
+    post:
+      summary: 获取节点列表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page:
+                  type: integer
+                limit:
+                  type: integer
+              required:
+                - page
+                - limit
+            example:
+              page: 1
+              limit: 1000
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      nodes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
+                            region_code:
+                              type: string
+                            status:
+                              type: string
+                            supported_protocols:
+                              type: array
+                              items:
+                                type: string
+                            need_kyc:
+                              type: boolean
+                            beian_required:
+                              type: boolean
+                            frps_version:
+                              type: string
+                            agent_version:
+                              type: string
+                            sponsor:
+                              type: string
+                            bandwidth:
+                              type: integer
+                            remark:
+                              type: string
+                            load:
+                              type: number
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                    required:
+                      - nodes
+                      - total
+                      - page
+                      - limit
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 获取成功
+                data:
+                  nodes:
+                    - id: 1
+                      name: Test-node
+                      region_code: CN
+                      status: offline
+                      supported_protocols:
+                        - tcp
+                        - udp
+                        - http
+                      need_kyc: false
+                      beian_required: false
+                      frps_version: LoliaFRP-CLI 0.67.2
+                      agent_version: LolinaFRPs-Agent-v0.0.3
+                      sponsor: LoliaTeam
+                      bandwidth: 100
+                      remark: 需要安装原神
+                      load: 14.86
+                  total: 2
+                  page: 1
+                  limit: 1000
+          headers: {}
+      security: []
+  /user/oauth/apps:
+    get:
+      summary: 获取用户创建的应用列表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      apps:
+                        type: array
+                        items: {}
+                      total:
+                        type: integer
+                    required:
+                      - apps
+                      - total
+                required:
+                  - code
+                  - msg
+                  - data
+      security: []
+  /user/oauth/app:
+    post:
+      summary: 创建OAuth应用
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+            example:
+              name: Test客户端
+              redirect_uris:
+                - http://localhost:1145
+              description: 测试客户端啦啦啦啦
+              homepage: https://lolia.link
+        required: true
+      responses:
+        '400':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                required:
+                  - code
+                  - msg
+          headers: {}
+      security: []
+  /user/oauth/app/{id}:
+    get:
+      summary: 获取OAuth应用详情
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: id
+          in: path
+          description: ''
+          required: true
+          example: '1'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      client_id:
+                        type: string
+                      created_at:
+                        type: string
+                      description:
+                        type: string
+                      homepage:
+                        type: string
+                      id:
+                        type: integer
+                      is_active:
+                        type: boolean
+                      name:
+                        type: string
+                      redirect_uris:
+                        type: array
+                        items:
+                          type: string
+                      updated_at:
+                        type: string
+                    required:
+                      - client_id
+                      - created_at
+                      - description
+                      - homepage
+                      - id
+                      - is_active
+                      - name
+                      - redirect_uris
+                      - updated_at
+                required:
+                  - code
+                  - msg
+                  - data
+      security: []
+    delete:
+      summary: 删除应用
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: id
+          in: path
+          description: ''
+          required: true
+          example: '1'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+      security: []
+    put:
+      summary: 更新应用
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: id
+          in: path
+          description: ''
+          required: true
+          example: '1'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+      security: []
+  /user/oauth/app/{id}/reset-secret:
+    post:
+      summary: 重置OAuth应用密钥
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: id
+          in: path
+          description: ''
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+      security: []
+  /user/oauth/authorizations:
+    get:
+      summary: 获取用户已授权的应用列表
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+      security: []
+  /user/oauth/authorization/{client_id}:
+    delete:
+      summary: 撤销用户对某个应用的授权
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: client_id
+          in: path
+          description: ''
+          required: true
+          example: '1'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                required:
+                  - code
+                  - msg
+      security: []
+  /oauth2/authorize:
+    get:
+      summary: OAuth2 Authorize 授权端点
+      deprecated: false
+      description: ''
+      tags: []
+      parameters:
+        - name: response_type
+          in: query
+          description: ''
+          required: false
+          example: code
+          schema:
+            type: string
+        - name: client_id
+          in: query
+          description: ''
+          required: false
+          example: 6ftlh75kf780f5k4
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          description: ''
+          required: false
+          example: http://localhost:1145
+          schema:
+            type: string
+        - name: scope
+          in: query
+          description: ''
+          required: false
+          example: user
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: ''
+          required: false
+          example: dssadasd
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+          headers: {}
+      security: []
+  /oauth2/approve:
+    post:
+      summary: OAuth2 授权确认请求
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: string
+                redirect_uri:
+                  type: string
+                scope:
+                  type: string
+                approved:
+                  type: boolean
+                state:
+                  type: string
+              required:
+                - client_id
+                - redirect_uri
+                - scope
+                - approved
+                - state
+            example:
+              client_id: 6ftlh75kf780f5k4
+              redirect_uri: http://localhost:1145
+              scope: user:*
+              approved: false
+              state: dssadasd
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      redirect_url:
+                        type: string
+                    required:
+                      - redirect_url
+                required:
+                  - code
+                  - msg
+                  - data
+          headers: {}
+      security: []
+  /client/version:
+    get:
+      summary: 获取客户端最新版本
+      deprecated: false
+      description: ''
+      tags: []
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: string
+                      tag:
+                        type: string
+                      assets:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            hash:
+                              type: string
+                          required:
+                            - name
+                            - hash
+                    required:
+                      - version
+                      - tag
+                      - assets
+                required:
+                  - code
+                  - msg
+                  - data
+              example:
+                code: 200
+                msg: 获取成功
+                data:
+                  version: LoliaFRP-CLI 0.69.3
+                  tag: v0.69.3
+                  assets:
+                    - name: LoliaFrp_android_arm.tar.gz
+                      hash: >-
+                        sha256:2d8a13c9bea30f3452fff3c39b4b3c5a3cf23b342bffa8d5ca1d81859e7050c0
+                    - name: LoliaFrp_android_arm64.tar.gz
+                      hash: >-
+                        sha256:648e0e958b314ceae80ee8fc9b989e3b30d20c17f4bc93e6215c2ebd4d80c710
+                    - name: LoliaFrp_darwin_amd64.tar.gz
+                      hash: >-
+                        sha256:e620faee1af0b6f2defe6bf60546113911f2a3aedf5f466c26d385ebe73522e2
+                    - name: LoliaFrp_darwin_arm64.tar.gz
+                      hash: >-
+                        sha256:baae7088062b62c36b64602ed3cff8e6cff705b6fc0bb53a0e6e57e36e74c8aa
+                    - name: LoliaFrp_freebsd_386.tar.gz
+                      hash: >-
+                        sha256:05ae726943f72d859b2a489cd3855c920503d2777c1cffc07e9547c52f51ec78
+                    - name: LoliaFrp_freebsd_amd64.tar.gz
+                      hash: >-
+                        sha256:0b2bb960a69bb98d8749e70a02bfe4939f983bc5e414faa936f086efa9c73863
+                    - name: LoliaFrp_freebsd_arm64.tar.gz
+                      hash: >-
+                        sha256:6c72758e518eb986d5bc05a8221381755321152fdb214b50ee26cbe36c7106d9
+                    - name: LoliaFrp_linux_386.tar.gz
+                      hash: >-
+                        sha256:f14a17784436133234953fb2d1fe5f353c3bd74eace67006e5bff8b203e23ed9
+                    - name: LoliaFrp_linux_amd64.tar.gz
+                      hash: >-
+                        sha256:5c4a8a2b6d6eb8797297630432ea7dcc0a03360a3a5cfaab5ed8e5ff12379296
+                    - name: LoliaFrp_linux_arm.tar.gz
+                      hash: >-
+                        sha256:a1f50d66ac8b589fdd94effcda2926c6f4679e6512bbe4304ee4e328df3078b8
+                    - name: LoliaFrp_linux_arm64.tar.gz
+                      hash: >-
+                        sha256:2cbac68db88abfabbc24d003af5153c048aeb539eef93ed57ab8344e9e69e251
+                    - name: LoliaFrp_linux_loong64.tar.gz
+                      hash: >-
+                        sha256:ed35e4e383370c0c443b57ea480c41e19000cb8a335803f90f15a321c5626d58
+                    - name: LoliaFrp_openbsd_386.tar.gz
+                      hash: >-
+                        sha256:13a1f26c0d6ccdd318b59d7c63e7e4aea6f9c8cddc93545ee7ad4360433c5b60
+                    - name: LoliaFrp_openbsd_amd64.tar.gz
+                      hash: >-
+                        sha256:ab3dda62dffc3061e721738f2997c5495e9b152d7e6038625ca607dfefb26792
+                    - name: LoliaFrp_openbsd_arm64.tar.gz
+                      hash: >-
+                        sha256:516f09b4c5803bd3a71628a7c1e6f7e7626e77dddf7b4bb175aa3b3cab699277
+                    - name: LoliaFrp_windows_386.zip
+                      hash: >-
+                        sha256:4962746427fa4110200afb6f6a8eec36a3e4071d1b3064e6d70b06be7bcae193
+                    - name: LoliaFrp_windows_amd64.zip
+                      hash: >-
+                        sha256:dfade1c5a4357c61346f5864f8712840cd29d2a9f993a9096befadc51946d4eb
+                    - name: LoliaFrp_windows_arm.zip
+                      hash: >-
+                        sha256:c7f55824e43ee7fcd6ca5c36f6f84fa0d0d3cf0d2e412a509b92650eabc74c1d
+                    - name: LoliaFrp_windows_arm64.zip
+                      hash: >-
+                        sha256:73e0ba204396148eca9b15611a0fc4031c92c3c223d51c4cf80a96b26e207b3b
+                    - name: sha256sum.txt
+                      hash: >-
+                        sha256:b964a47d052f3a7080597e0fc0495f2224675746b2307226944737150e084736
+          headers: {}
+      security: []
+components:
+  schemas:
+    long:
+      type: integer
+      format: int64
+  responses: {}
+  securitySchemes: {}
+servers:
+  - url: https://api.lolia.link/api/v1
+    description: 正式环境
+security: []

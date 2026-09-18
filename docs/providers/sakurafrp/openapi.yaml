@@ -1,0 +1,1010 @@
+# OpenAPI Schema for SakuraFrp API v4
+
+openapi: 3.0.3
+info:
+  title: SakuraFrp API
+  version: 4.1.0
+  termsOfService: "https://www.natfrp.com/policy/tos"
+  license:
+    name: GNU Affero General Public License v3.0
+    url: "https://www.gnu.org/licenses/agpl-3.0.en.html"
+  contact:
+    name: SakuraFrp Support
+    email: support@natfrp.cloud
+
+servers:
+  - url: "https://api.natfrp.com/v4"
+    description: SakuraFrp API
+
+paths:
+  /system/bulletin:
+    get:
+      tags: [系统信息]
+      summary: 获取平台公告
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - title
+                    - content
+                    - icon
+                    - time
+                    - expand
+                  properties:
+                    title:
+                      type: string
+                      description: 公告标题
+                      example: 关于 SakuraFrp API 的说明
+                    content:
+                      type: string
+                      description: 公告内容
+                      example: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+                    time:
+                      type: string
+                      description: 公告发布时间
+                      example: 2023/01/01
+                    icon:
+                      type: string
+                      description: 公告图标
+                      example: 😊
+                    expand:
+                      type: boolean
+                      description: 是否默认展开
+                      example: true
+          description: 返回平台公告列表
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /system/clients:
+    get:
+      tags: [系统信息]
+      summary: 获取客户端软件信息
+      security: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  description: 下载分类
+                  required:
+                    - ver
+                    - time
+                  properties:
+                    ver:
+                      type: string
+                      description: 版本号
+                      example: 3.0.0
+                    time:
+                      type: integer
+                      description: 版本发布时间
+                      example: 1620000000
+                    note:
+                      type: string
+                      description: 更新日志
+                      example: Ut aliquam purus sit amet luctus venenatis lectus magna fringilla
+                    archs:
+                      type: object
+                      description: 某个分类的架构列表, 仅 download=true 时存在
+                      additionalProperties:
+                        type: object
+                        required:
+                          - title
+                          - url
+                          - hash
+                          - size
+                        properties:
+                          title:
+                            type: string
+                            description: 下载标题
+                            example: Windows 安装程序
+                          url:
+                            type: string
+                            description: 下载链接
+                            example: https://nya.globalslb.net/natfrp/client/foo/bar
+                          hash:
+                            type: string
+                            description: 下载文件哈希值
+                            example: 1234567890abcdef1234567890abcdef
+                          size:
+                            type: integer
+                            description: 下载文件大小
+                            example: 114514
+          description: 返回软件下载信息
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /system/policy:
+    get:
+      tags: [系统信息]
+      summary: 获取服务条款和策略
+      security: []
+      parameters:
+        - name: type
+          in: query
+          description: 策略类型
+          required: true
+          schema:
+            type: string
+            enum:
+              - tos
+              - content
+              - privacy
+              - rule
+              - refund
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - content
+                properties:
+                  alert:
+                    type: string
+                    description: 置顶警告框内容
+                    example: Habitasse platea dictumst vestibulum rhoncus est pellentesque elit
+                  updated:
+                    type: string
+                    description: 策略更新时间
+                    example: 2023/01/04
+                  content:
+                    type: string
+                    description: 策略内容文本
+                    example: Nam at lectus urna duis. Sed pulvinar proin gravida hendrerit. Nec feugiat nisl pretium fusce id velit ut tortor pretium.
+          description: 返回服务条款和策略
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /user/info:
+    get:
+      tags: [用户信息]
+      summary: 获取用户基本信息
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/UserInfo.yaml
+          description: 返回用户信息
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /user/data_plans:
+    get:
+      tags: [用户信息]
+      summary: 获取用户流量包
+      parameters:
+        - name: status
+          in: query
+          description: 流量包状态
+          schema:
+            type: string
+            enum:
+              - valid
+              - invalid
+              - all
+            default: valid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./schemas/DataPlan.yaml
+          description: 返回用户流量包信息
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /user/traffic_history:
+    get:
+      tags: [用户信息]
+      summary: 获取用户流量历史
+      parameters:
+        - name: type
+          in: query
+          description: 查询时间类型
+          required: true
+          schema:
+            type: string
+            enum:
+              - day
+              - week
+              - month
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: array
+                  items:
+                    type: string
+                  maxItems: 3
+                  minItems: 3
+                  example:
+                    - "2023-01"
+                    - 0
+                    - 5368709120
+                  description: "流量历史数据点, `[时间段, 流量消耗, 流量剩余]`"
+          description: 返回用户流量历史
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /user/notification:
+    get:
+      tags: [用户信息]
+      summary: 获取用户通知列表
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - match
+                    - type
+                    - title
+                    - content
+                  properties:
+                    match:
+                      type: array
+                      description: 路由匹配规则列表
+                      items:
+                        type: string
+                      example:
+                        - '*'
+                        - /tunnel/
+                        - /user/*
+                    type:
+                      type: string
+                      description: 通知类型
+                      enum:
+                        - default
+                        - info
+                        - success
+                        - warning
+                        - error
+                      example: info
+                    title:
+                      type: string
+                      description: 通知标题
+                      example: 非常好通知，爱来自 iDea Leaper
+                    content:
+                      type: string
+                      description: 通知内容
+                      example: lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua
+          description: 返回通知列表
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /nodes:
+    get:
+      tags: [节点管理]
+      summary: 列出所有节点
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  required:
+                    - name
+                    - host
+                    - description
+                    - vip
+                    - flag
+                  properties:
+                    name:
+                      type: string
+                      description: 节点名称
+                      example: 一个神奇的节点
+                    host:
+                      type: string
+                      description: 节点地址
+                      example: idea-leaper-1.natfrp.io
+                    description:
+                      type: string
+                      description: 节点说明
+                      example: 推荐某些用户使用
+                    vip:
+                      type: integer
+                      description: 节点 VIP 等级
+                    flag:
+                      type: integer
+                      description: |
+                        节点 Flag
+                        - `0b11`: 允许 HTTP 隧道
+                        - `1 << 2`: 是否允许创建隧道 (满载时为 0)
+                        - `1 << 3`: 是否为内地节点
+                        - `1 << 4`: 是否为无防节点
+                        - `1 << 5`: 允许 UDP 流量
+                        - `1 << 6`: 是否为私有节点
+                        - `1 << 7`: tls_sucks
+                        - `1 << 8`: 是否强制启用访问认证
+                        - `1 << 9`: 是否离线
+                        - `1 << 10`: 是否为 BETA 节点
+                      example: 0
+          description: 节点列表
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /node/stats:
+    get:
+      tags: [节点管理]
+      summary: 获取节点状态信息
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - time
+                properties:
+                  time:
+                    type: integer
+                    description: 数据更新时间戳
+                    example: 1620000000
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - online
+                        - uptime
+                        - load
+                      properties:
+                        id:
+                          type: integer
+                          description: 节点 ID
+                          example: 233
+                        online:
+                          type: integer
+                          description: 节点是否在线 (-1 为离线, >= 0 为在线, 通常为 0)
+                          example:
+                            - 0
+                            - -1
+                        uptime:
+                          type: integer
+                          description: 节点运行时间 (秒)
+                          example: 114514
+                        load:
+                          type: integer
+                          description: 节点负载 (%)
+                          example: 19.19
+          description: 返回节点状态信息
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnels:
+    get:
+      tags: [隧道管理]
+      summary: 列出所有隧道
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./schemas/Tunnel.yaml
+          description: 隧道列表
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+    post:
+      tags: [隧道管理]
+      summary: 创建隧道
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelCreateRequestBody
+            schema:
+              type: object
+              required:
+                - name
+                - type
+                - node
+              properties:
+                name:
+                  description: 隧道名
+                  type: string
+                  example: SampleTunnel
+                type:
+                  description: 隧道类型
+                  type: string
+                  enum:
+                    - tcp
+                    - udp
+                    - http
+                    - https
+                    - wol
+                    - etcp
+                    - eudp
+                node:
+                  description: 节点 ID
+                  type: integer
+                  example: 5
+                note:
+                  description: 备注信息
+                  type: string
+                extra:
+                  description: 自定义配置数据
+                  pattern: '(?:\w+ = .+)(?:\n\w+ = .+)*'
+                  type: string
+                  example: |
+                    key_1 = val_1
+                    key_2 = val_2
+                    auto_https = auto
+                local_ip:
+                  description: 本地 IP, 除 wol 类型外必填
+                  type: string
+                  example: 127.0.0.1
+                local_port:
+                  description: 本地端口, 除 wol 类型外必填
+                  type: integer
+                  example: 810
+                remote:
+                  type: string
+                  description: 远程信息, 端口或绑定域名 (http/https 类型必填)
+                  example: example.tld
+          application/json: *tunnelCreateRequestBody
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: integer
+                    description: 创建的隧道 ID
+                    example: 114514
+                  name:
+                    type: string
+                    description: 创建的隧道名
+                    example: SampleTunnel
+                  remote:
+                    type: string
+                    description: 远程信息, 端口或绑定域名
+                    example: example.tld
+          description: 创建成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/config:
+    post:
+      summary: 获取隧道配置文件
+      tags: [隧道管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelConfigRequestBody
+            schema:
+              type: object
+              required:
+                - query
+                - frpc
+              properties:
+                query:
+                  description: |
+                    启动目标查询字符串，格式为 `<启动目标1>[,启动目标2...]`
+
+                    多个 **启动目标** 使用半角逗号 "," 分开，中间不能有空格或其他字符
+
+                    每个 **启动目标** 可以是：
+                    - 一个隧道 ID（如 `114514`）
+                    - `n` 前缀的节点 ID（如 `n233`）
+                  type: string
+                  example: "114514,114515,n233"
+                frpc:
+                  description: |
+                    要获取配置文件的目标 frpc 版本
+
+                    - 支持 SakuraFrp 分发的版本如 `0.51.0-sakura-7.2`
+                    - 也支持上游 frpc 版本如 `0.59.0`，最低支持版本为 `0.18.0`
+            examples:
+              查询单条隧道:
+                value:
+                  query: "114514"
+              查询单个节点下所有隧道:
+                value:
+                  query: n233
+              查询多节点下的多条隧道:
+                value:
+                  query: "n233,n234,114514"
+          application/json: *tunnelConfigRequestBody
+
+      responses:
+        "200":
+          content:
+            text/plain: {}
+            text/toml: {}
+          description: 可被 frpc 加载的 ini 或 toml 配置文件
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/edit:
+    post:
+      summary: 编辑隧道
+      tags: [隧道管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelEditRequestBody
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: 隧道 ID
+                  example: 114514
+                note:
+                  type: string
+                  description: 隧道备注
+                  example: SampleTunnel
+                local_ip:
+                  type: string
+                  description: 本地 IP
+                  example: 127.0.0.1
+                local_port:
+                  type: integer
+                  description: 本地端口
+                  example: 114514
+                extra:
+                  type: string
+                  description: 额外参数列表
+                  example: "key=value\nkey2=value2"
+          application/json: *tunnelEditRequestBody
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - extra
+                properties:
+                  extra:
+                    type: string
+                    description: 处理后的额外参数列表
+                    example: "key=value\nkey2=value2"
+          description: 服务端处理后的参数
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/lock:
+    post:
+      summary: 锁定隧道
+      tags: [隧道管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelLockRequestBody
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: 隧道 ID
+                  example: 114514
+                edit:
+                  type: boolean
+                  description: 更新锁定编辑状态
+                  example: true
+                delete:
+                  type: boolean
+                  description: 更新锁定删除状态
+                  example: true
+                migrate:
+                  type: boolean
+                  description: 更新锁定迁移状态
+                  example: true
+          application/json: *tunnelLockRequestBody
+      responses:
+        "204":
+          description: 锁定状态修改成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/migrate:
+    post:
+      summary: 迁移隧道
+      tags: [隧道管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelMigrateRequestBody
+            schema:
+              type: object
+              required:
+                - id
+                - node
+              properties:
+                id:
+                  type: integer
+                  description: 隧道 ID
+                  example: 114514
+                node:
+                  type: integer
+                  description: 目标节点 ID
+                  example: 233
+          application/json: *tunnelMigrateRequestBody
+      responses:
+        "204":
+          description: 迁移成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/delete:
+    post:
+      summary: 删除隧道
+      tags: [隧道管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &deleteTunnelRequestBody
+            schema:
+              type: object
+              properties:
+                ids:
+                  description: 以 `,` 分隔的隧道 ID 列表，最大支持 10 条隧道
+                  type: string
+                  example: 114514,1919,810
+          application/json: *deleteTunnelRequestBody
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deleted
+                  - failed
+                properties:
+                  deleted:
+                    type: array
+                    items:
+                      type: integer
+                    description: 被删除的隧道 ID 列表
+                    example:
+                      - 114514
+                      - 114515
+                  failed:
+                    type: array
+                    items:
+                      type: integer
+                    description: 已删除但未能成功踢下线的隧道 ID 列表
+                    example:
+                      - 1919
+          description: 删除成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/traffic:
+    get:
+      summary: 获取流量使用记录
+      tags: [隧道管理]
+      parameters:
+        - name: id
+          in: query
+          description: 隧道 ID
+          required: true
+          schema:
+            type: integer
+            description: 隧道 ID
+            example: 114514
+      description: 返回 `Timestamp[Traffic]`
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: integer
+          description: 隧道流量历史记录
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/auth:
+    post:
+      summary: 授权 IP 访问隧道
+      tags: [访问认证]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelAuthRequestBody
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  description: 隧道 ID
+                  type: integer
+                  example: 114514
+                ip:
+                  description: 要授权的 IP，留空授权请求 IP
+                  type: string
+                  example: "114.51.4.191"
+          application/json: *tunnelAuthRequestBody
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+                description: 授权成功的 IP
+                example: "114.51.4.191"
+          description: 授权成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /tunnel/auth_query:
+    post:
+      summary: 根据节点 IP 和端口查询隧道，用于访问认证授权
+      tags: [访问认证]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &tunnelRemoteQueryRequestBody
+            schema:
+              type: object
+              required:
+                - ip
+                - port
+              properties:
+                ip:
+                  description: 节点 IP
+                  type: string
+                  example: "114.51.4.191"
+                port:
+                  description: 隧道远程端口
+                  type: integer
+                  example: 114514
+          application/json: *tunnelRemoteQueryRequestBody
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - name
+                properties:
+                  id:
+                    type: integer
+                    description: 隧道 ID
+                    example: 114514
+                  name:
+                    type: string
+                    description: 隧道名
+                    example: SampleTunnel
+          description: 查询到的隧道信息
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /computers:
+    get:
+      summary: 获取计算机列表
+      tags: [计算机管理]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./schemas/ComputerWithId.yaml
+          description: 计算机列表
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+    post:
+      summary: 添加计算机
+      tags: [计算机管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &addComputerRequestBody
+            schema:
+              $ref: ./schemas/Computer.yaml
+          application/json: *addComputerRequestBody
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                properties:
+                  id:
+                    type: integer
+                    description: 计算机 ID
+                    example: 114514
+          description: 创建成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+    patch:
+      summary: 更新计算机信息
+      tags: [计算机管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &updateComputersRequestBody
+            schema:
+              $ref: ./schemas/ComputerWithId.yaml
+          application/json: *updateComputersRequestBody
+      responses:
+        "204":
+          description: 更新成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /computer/delete:
+    post:
+      summary: 删除计算机
+      tags: [计算机管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &deleteComputerRequestBody
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: 计算机 ID
+                  example: 1001
+          application/json: *deleteComputerRequestBody
+      responses:
+        "204":
+          description: 删除成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /computer/poweron:
+    post:
+      summary: 执行远程开机
+      tags: [计算机管理]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded: &powerOnRequestBody
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: integer
+                  description: 计算机 ID
+                  example: 1001
+                password:
+                  type: string
+                  description: 远程开机客户端密码
+                  example: "wdnmdpassword"
+          application/json: *powerOnRequestBody
+      responses:
+        "204":
+          description: 开机成功
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+  /domain/get:
+    get:
+      summary: 获取子域绑定功能相关数据
+      tags: [子域绑定]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - records
+                properties: &domainGetResponseProps
+                  domain:
+                    type: string
+                    description: 当前账户申请到的子域名
+                    example: "example.nyat.app"
+                  records:
+                    type: array
+                    description: 账户中的子域名记录列表
+                    items:
+                      type: object
+                      required:
+                        - rr
+                        - type
+                        - tunnel
+                      properties:
+                        rr:
+                          type: string
+                          description: 记录名
+                          example: "www"
+                        type:
+                          type: string
+                          description: 记录类型
+                          example: "CNAME"
+                          enum:
+                            - CNAME
+                            - SRV
+                        tunnel:
+                          type: integer
+                          description: 记录绑定到的隧道 ID
+                          example: 114514
+                  ssl:
+                    type: object
+                    description: 子域名 SSL 证书信息
+                    properties:
+                      created:
+                        type: integer
+                        description: 存在时为当前活跃 SSL 证书的创建时间
+                        example: 1620000000
+                      expires:
+                        type: integer
+                        description: 存在时表示当前 SSL 证书已签发成功, 并指示到前期时间
+                        example: 1620000000
+                  words:
+                    type: array
+                    description: 允许创建记录的关键词白名单
+                    items:
+                      type: string
+                  srv_apps:
+                    type: object
+                    description: 允许创建 SRV 记录的应用白名单
+                    additionalProperties:
+                      type: string
+                  acquire:
+                    type: object
+                    description: 允许申请的子域名风格
+                    additionalProperties:
+                      type: object
+                      required:
+                        - desc
+                        - val
+                      properties:
+                        desc:
+                          type: string
+                          description: 风格名称
+                          example: "UID 前缀"
+                        val:
+                          type: string
+                          description: 风格示例值
+                          example: "u114514"
+          description: 子域绑定功能相关数据
+        "500": { $ref: "#/components/responses/ErrorResponse" }
+
+components:
+  responses:
+    ErrorResponse:
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+              - msg
+            properties:
+              code:
+                description: 错误代码
+                type: integer
+                example: 403
+              msg:
+                description: 人类友好的错误信息
+                type: string
+                example: 无权访问
+      description: 通用错误返回
+
+  securitySchemes:
+    # PanelSessionCookie:
+    #   type: apiKey
+    #   description: 主站 PHP Session 认证
+    #   name: PHPSESSID
+    #   in: cookie
+    UserToken:
+      scheme: bearer
+      type: http
+      description: 访问密钥认证 - Bearer Token
+    UserTokenPost:
+      type: apiKey
+      description: 访问密钥认证 - POST 参数
+      name: token
+      in: query
+
+security:
+  - UserToken: []
+  - UserTokenPost: []
+  # - PanelSessionCookie: []

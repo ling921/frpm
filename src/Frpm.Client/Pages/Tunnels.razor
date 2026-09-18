@@ -1,0 +1,207 @@
+@page "/tunnels"
+
+<PageTitle>隧道 - FRPM</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-5">
+    <div>
+        <MudText Typo="Typo.h4">隧道</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">远端状态、期望状态和本地进程状态相互独立。</MudText>
+    </div>
+    <MudSpacer />
+    @if (_refreshing)
+    {
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+            <MudProgressCircular Indeterminate Size="Size.Small" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary">正在刷新…</MudText>
+        </MudStack>
+    }
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreate">创建隧道</MudButton>
+</MudStack>
+
+@if (_editorOpen)
+{
+    <MudPaper Class="pa-5 mb-5" Outlined Elevation="0">
+        <MudText Typo="Typo.h6" GutterBottom>@(_request.TunnelId is null ? "创建隧道" : "编辑隧道")</MudText>
+        <MudGrid>
+            <MudItem xs="12" md="4"><MudSelect T="Guid" Label="供应商账号" Value="_request.ProviderAccountId" ValueChanged="OnProviderAccountChangedAsync" Variant="Variant.Outlined" Disabled="@(_request.TunnelId is not null)">@foreach (var account in _accounts) { <MudSelectItem Value="account.Id">@account.DisplayName (@BuiltInProviderCatalog.Get(account.ProviderType).DisplayName)</MudSelectItem> }</MudSelect></MudItem>
+            <MudItem xs="12" md="4"><MudTextField Label="隧道名称" @bind-Value="_request.Name" Variant="Variant.Outlined" Required /></MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" Label="类型" Value="_request.Type" ValueChanged="OnTunnelTypeChanged" Variant="Variant.Outlined">
+                    @foreach (var type in AvailableTunnelTypes)
+                    {
+                        <MudSelectItem Value="type">@type.ToUpperInvariant()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="string" Label="@(_request.TunnelId is null ? "节点" : "节点（编辑时不可修改）")" @bind-Value="_request.NodeId" Variant="Variant.Outlined" Disabled="@(_loadingNodes || _request.TunnelId is not null)" Required="@RequiresNode" HelperText="@NodeHelperText">
+                    @if (!string.IsNullOrWhiteSpace(_request.NodeId) && _nodes.All(node => node.Id != _request.NodeId))
+                    {
+                        <MudSelectItem Value="_request.NodeId" Disabled>当前节点 · 节点列表中不可用</MudSelectItem>
+                    }
+                    @foreach (var node in _nodes)
+                    {
+                        <MudSelectItem Value="node.Id" Disabled="@(!node.Available)">@NodeOptionText(node)</MudSelectItem>
+                    }
+                </MudSelect>
+                @if (_loadingNodes) { <MudProgressLinear Indeterminate Class="mt-1" /> }
+            </MudItem>
+            @if (RequiresLocalEndpoint)
+            {
+                <MudItem xs="12" md="4">
+                    <MudAutocomplete T="string" Label="本地地址" @bind-Value="_request.LocalAddress" SearchFunc="SearchLocalAddressesAsync" Variant="Variant.Outlined" Strict="false" CoerceValue MinCharacters="0" Clearable />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                        <MudAutocomplete T="int?" Label="本地端口" @bind-Value="_request.LocalPort" SearchFunc="SearchLocalPortsAsync" ToStringFunc="FormatPort" Variant="Variant.Outlined" Strict="false" CoerceValue MinCharacters="0" MaxItems="12" Style="flex:1;min-width:0" />
+                        <MudTooltip Text="由 FRPM 所在机器测试本地服务">
+                            <MudIconButton Icon="@Icons.Material.Filled.NetworkCheck" Color="Color.Primary" OnClick="TestLocalEndpointAsync" Disabled="@(_busy || _testingEndpoint)" />
+                        </MudTooltip>
+                    </MudStack>
+                </MudItem>
+            }
+            else
+            {
+                <MudItem xs="12" md="8"><MudAlert Severity="Severity.Info" Dense>WOL 隧道会由 frpc 在本地网络发送唤醒包，无需填写本地地址和端口。</MudAlert></MudItem>
+            }
+            @if (UsesDomains)
+            {
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="绑定域名" @bind-Value="_request.CustomDomain" Variant="Variant.Outlined" Lines="2" HelperText="@DomainHelperText" />
+                </MudItem>
+            }
+            else if (UsesRemotePort)
+            {
+                <MudItem xs="12" md="4"><MudNumericField T="int?" Label="远程端口（0 表示自动）" @bind-Value="_request.RemotePort" Variant="Variant.Outlined" Min="0" Max="65535" /></MudItem>
+            }
+            <MudItem xs="12" md="8"><MudTextField Label="备注" @bind-Value="_request.Remark" Variant="Variant.Outlined" /></MudItem>
+        </MudGrid>
+        <MudStack Row Justify="Justify.FlexEnd" Class="mt-4"><MudButton OnClick="CloseEditor">取消</MudButton><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="_busy">保存</MudButton></MudStack>
+    </MudPaper>
+}
+
+<MudTextField @bind-Value="_search" Placeholder="搜索名称、账号、地址或状态" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Class="mb-4" Immediate />
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate />
+}
+else if (Filtered.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">没有匹配的隧道。可先同步供应商账号或创建隧道。</MudAlert>
+}
+else
+{
+    <MudHidden Breakpoint="Breakpoint.SmAndDown">
+        <MudTable Items="Filtered" Hover Dense Elevation="0" Outlined>
+            <HeaderContent>
+                <MudTh>隧道</MudTh>
+                <MudTh>供应商</MudTh>
+                <MudTh>映射</MudTh>
+                <MudTh>远端</MudTh>
+                <MudTh>本地进程</MudTh>
+                <MudTh>操作</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="隧道">
+                    <MudText Typo="Typo.body2">@context.Name</MudText>
+                    <MudText Typo="Typo.caption">@context.Type.ToUpperInvariant() · @context.RemoteId</MudText>
+                </MudTd>
+                <MudTd DataLabel="供应商">@context.ProviderAccountName<br />
+                    <MudText Typo="Typo.caption">
+                        @NodeDisplay(context)
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="映射">
+                    <MudText Typo="Typo.body2">@context.LocalAddress:@context.LocalPort →</MudText>
+                    @if (GetPublicAddresses(context) is { Count: > 0 } publicAddresses)
+                    {
+                        <MudStack Spacing="0">
+                            @foreach (var publicAddress in publicAddresses)
+                            {
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
+                                    @if (publicAddress.Url is not null)
+                                    {
+                                        <MudLink Href="@publicAddress.Url" Target="_blank" Typo="Typo.body2" Class="text-truncate" Style="max-width:190px">@publicAddress.Display</MudLink>
+                                    }
+                                    else { <MudText Typo="Typo.body2">@publicAddress.Display</MudText> }
+                                    <MudTooltip Text="复制映射地址"><MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="@(() => CopyPublicAddressAsync(publicAddress.Display))" /></MudTooltip>
+                                    @if (publicAddress.Url is not null)
+                                    {
+                                        <MudTooltip Text="在新窗口打开"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Href="@publicAddress.Url" Target="_blank" /></MudTooltip>
+                                    }
+                                </MudStack>
+                            }
+                        </MudStack>
+                    }
+                    else { <MudText Typo="Typo.caption" Color="Color.Secondary">等待供应商返回映射地址</MudText> }
+                </MudTd>
+                <MudTd DataLabel="远端">
+                    <MudChip T="string" Size="Size.Small" Color="@RemoteColor(context.RemoteState)">
+                        @RemoteText(context.RemoteState)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="本地进程">
+                    <MudTooltip Text="@RuntimeTooltip(context)">
+                        <MudChip T="string" Size="Size.Small" Color="@RuntimeColor(context.RuntimeState)" Style="width:72px;justify-content:center">
+                            @RuntimeText(context.RuntimeState)
+                        </MudChip>
+                    </MudTooltip>
+                </MudTd>
+                <MudTd DataLabel="操作" Style="text-align:right">
+                    <TunnelActionButtons Tunnel="context" Start="StartAsync" Stop="StopAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudHidden>
+    <MudHidden Breakpoint="Breakpoint.MdAndUp">
+        <MudStack Spacing="2">
+            @foreach (var tunnel in Filtered)
+            {
+                <MudCard Outlined>
+                    <MudCardContent>
+                        <MudStack Row>
+                            <div>
+                                <MudText Typo="Typo.h6">@tunnel.Name</MudText>
+                                <MudText Typo="Typo.caption">@tunnel.ProviderAccountName · @tunnel.Type.ToUpperInvariant()</MudText>
+                            </div>
+                            <MudSpacer />
+                            <MudTooltip Text="@RuntimeTooltip(tunnel)">
+                                <MudChip T="string" Size="Size.Small" Color="@RuntimeColor(tunnel.RuntimeState)" Style="width:72px;justify-content:center">
+                                    @RuntimeText(tunnel.RuntimeState)
+                                </MudChip>
+                            </MudTooltip>
+                        </MudStack>
+                        <MudDivider Class="my-3" />
+                        <MudText Typo="Typo.caption">节点：@NodeDisplay(tunnel)</MudText>
+                        @if (GetPublicAddresses(tunnel) is { Count: > 0 } publicAddresses)
+                        {
+                            <MudText Typo="Typo.body2">@tunnel.LocalAddress:@tunnel.LocalPort →</MudText>
+                            <MudStack Spacing="0">
+                                @foreach (var publicAddress in publicAddresses)
+                                {
+                                    <MudStack Row AlignItems="AlignItems.Center" Spacing="0">
+                                        @if (publicAddress.Url is not null)
+                                        {
+                                            <MudLink Href="@publicAddress.Url" Target="_blank" Typo="Typo.body2">@publicAddress.Display</MudLink>
+                                        }
+                                        else { <MudText Typo="Typo.body2">@publicAddress.Display</MudText> }
+                                        <MudTooltip Text="复制映射地址"><MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="@(() => CopyPublicAddressAsync(publicAddress.Display))" /></MudTooltip>
+                                        @if (publicAddress.Url is not null)
+                                        {
+                                            <MudTooltip Text="在新窗口打开"><MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Href="@publicAddress.Url" Target="_blank" /></MudTooltip>
+                                        }
+                                    </MudStack>
+                                }
+                            </MudStack>
+                        }
+                        <MudText Typo="Typo.caption">远端：@RemoteText(tunnel.RemoteState)</MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <TunnelActionButtons Tunnel="tunnel" Start="StartAsync" Stop="StopAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
+                    </MudCardActions>
+                </MudCard>
+            }
+        </MudStack>
+    </MudHidden>
+}

@@ -1,0 +1,48 @@
+<script type="module" src="@Assets["Layout/ReconnectModal.razor.js"]"></script>
+
+<dialog id="components-reconnect-modal" data-nosnippet>
+    <div class="components-reconnect-backdrop">
+        <section class="components-reconnect-surface" aria-live="assertive" aria-atomic="true">
+            <header class="components-reconnect-header">
+                <span class="components-reconnect-status-dot" aria-hidden="true"></span>
+                <h2>连接已中断</h2>
+            </header>
+
+            <p class="components-reconnect-supporting">
+                当前会话仍然保留，我们会继续尝试恢复连接。
+            </p>
+
+            <div class="components-rejoin-loader components-reconnect-first-attempt-visible components-reconnect-repeated-attempt-visible" aria-hidden="true">
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+
+            <p class="components-reconnect-first-attempt-visible components-reconnect-message">
+                正在重新连接服务器…
+            </p>
+            <p class="components-reconnect-repeated-attempt-visible components-reconnect-message">
+                连接失败，将在 <span id="components-seconds-to-next-attempt"></span> 秒后重试。
+            </p>
+            <p class="components-reconnect-failed-visible components-reconnect-message components-reconnect-danger">
+                无法恢复连接，请立即重试或重新加载页面。
+            </p>
+
+            <p class="components-pause-visible components-reconnect-message">
+                当前会话已被服务器暂停。
+            </p>
+            <p class="components-resume-failed-visible components-reconnect-message components-reconnect-danger">
+                无法恢复会话，请立即重试或重新加载页面。
+            </p>
+
+            <div class="components-reconnect-actions">
+                <button id="components-reconnect-button" class="components-reconnect-failed-visible" type="button">
+                    立即重试
+                </button>
+                <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible" type="button">
+                    恢复会话
+                </button>
+            </div>
+        </section>
+    </div>
+</dialog>

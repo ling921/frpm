@@ -1,0 +1,7 @@
+﻿@if (!string.IsNullOrEmpty(DisplayMessage))
+{
+    var severity = DisplayMessage.StartsWith("Error") || DisplayMessage.StartsWith("错误")
+        ? Severity.Error
+        : Severity.Success;
+    <MudAlert Severity="@severity" Variant="Variant.Filled" Class="mb-4">@DisplayMessage</MudAlert>
+}

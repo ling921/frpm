@@ -1,0 +1,73 @@
+@page "/settings"
+
+<PageTitle>系统设置 - FRPM</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-5">
+    <div>
+        <MudText Typo="Typo.h4">系统设置</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">运行环境和后台同步策略。</MudText>
+    </div>
+    <MudSpacer />
+    <MudIconButton Icon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="_loading" />
+</MudStack>
+
+@if (_loading && _settings is null)
+{
+    <MudProgressLinear Indeterminate />
+}
+else if (_settings is not null)
+{
+    <MudPaper Class="pa-5 mb-5" Outlined Elevation="0">
+        <MudText Typo="Typo.h6" GutterBottom>运行环境</MudText>
+        <MudGrid Spacing="3">
+            <EnvironmentInfoItem Label="操作系统" Value="@OperatingSystemText" />
+            <EnvironmentInfoItem Label="系统架构" Value="@_settings.Architecture" />
+            <EnvironmentInfoItem Label="FRPM 版本" Value="@_settings.ApplicationVersion" />
+            <EnvironmentInfoItem Label=".NET 运行时" Value="@_settings.FrameworkDescription" />
+            <EnvironmentInfoItem Label="首次启动" Value="@FormatTime(_settings.FirstStartedAt)" />
+            <EnvironmentInfoItem Label="本次启动" Value="@FormatTime(_settings.LastStartedAt)" />
+            <EnvironmentInfoItem Label="当前运行时长" Value="@FormatDuration(CurrentUptimeSeconds)" />
+            <EnvironmentInfoItem Label="实例 ID" Value="@_settings.InstanceId.ToString()" Wide />
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-5 mb-5" Outlined Elevation="0">
+        <MudText Typo="Typo.h6" GutterBottom>供应商同步</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">后台服务统一获取远端隧道状态；修改间隔后立即生效。</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="int" Label="同步间隔（秒）" @bind-Value="_syncIntervalSeconds"
+                                 Min="15" Max="3600" Variant="Variant.Outlined"
+                                 HelperText="允许范围：15–3600 秒" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudStack AlignItems="AlignItems.Stretch" Justify="Justify.SpaceAround"
+                          Spacing="2" Style="width: 120px;">
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save"
+                               Color="Color.Primary" OnClick="SaveAsync" Disabled="_busy">
+                        保存设置
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Sync"
+                               OnClick="SyncNowAsync" Disabled="_busy">
+                        立即同步
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+        <MudDivider Class="my-4" />
+        <MudStack Row Spacing="6" Style="flex-wrap:wrap">
+            <MudText Typo="Typo.body2">上次同步：@FormatOptionalTime(_settings.LastProviderSyncAt)</MudText>
+            <MudText Typo="Typo.body2">下次同步：@FormatOptionalTime(_settings.NextProviderSyncAt)</MudText>
+            <MudText Typo="Typo.body2">管理界面刷新：5 秒</MudText>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-5" Outlined Elevation="0">
+        <MudText Typo="Typo.h6" GutterBottom>存储与安全</MudText>
+        <MudList T="string" Dense>
+            <MudListItem T="string" Icon="@Icons.Material.Filled.Description">日志保留：30 天，最大 512 MiB</MudListItem>
+            <MudListItem T="string" Icon="@Icons.Material.Filled.Security">凭据使用 ASP.NET Core Data Protection 加密</MudListItem>
+            <MudListItem T="string" Icon="@Icons.Material.Filled.Storage">数据库：SQLite</MudListItem>
+        </MudList>
+    </MudPaper>
+}

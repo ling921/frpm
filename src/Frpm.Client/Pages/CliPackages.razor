@@ -1,0 +1,191 @@
+@page "/cli-packages"
+
+<PageTitle>CLI 版本 - FRPM</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom>CLI 版本</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
+    新包安装后需手动激活；替换活动版本或确认降级时会自动重启相关隧道。
+</MudText>
+
+<MudPaper Class="pa-5 mb-5" Outlined Elevation="0">
+    <MudText Typo="Typo.h6" GutterBottom>官方下载建议</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+        推荐目标是运行 FRPM 和 frpc 的服务器环境，而不是当前浏览器所在的设备。下载完成后请在下方上传安装包。
+    </MudText>
+    <MudSelect T="ProviderType" Label="供应商" @bind-Value="_uploadProvider" Variant="Variant.Outlined" Class="mb-4" Style="max-width: 360px;">
+        @foreach (var provider in BuiltInProviderCatalog.All)
+        {
+            <MudSelectItem Value="provider.Type">@provider.DisplayName</MudSelectItem>
+        }
+    </MudSelect>
+    @if (_settings is null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense Class="mb-4">
+            暂时无法读取运行环境，仍可按供应商说明下载并手动选择与服务器匹配的包。
+        </MudAlert>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudChip T="string" Color="Color.Info" Variant="Variant.Outlined">
+                当前环境：@EnvironmentDisplayText
+            </MudChip>
+            @if (DownloadRecommendation!.IsSupported)
+            {
+                <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined">
+                    推荐下载项：@DownloadRecommendation.RecommendedDisplayText
+                </MudChip>
+            }
+            else
+            {
+                <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined">
+                    未找到自动推荐
+                </MudChip>
+            }
+        </div>
+        @if (DownloadRecommendation is { IsSupported: false })
+        {
+            <MudAlert Severity="Severity.Warning" Dense Class="mb-4">@DownloadRecommendation.Message</MudAlert>
+        }
+        else if (DownloadRecommendation?.ExpectedFileName is { } expectedFileName)
+        {
+            <MudText Typo="Typo.body2" Class="mb-4">
+                预期文件名：<code>@expectedFileName</code>
+            </MudText>
+        }
+    }
+    <MudText Typo="Typo.subtitle2" Class="mb-2">@BuiltInProviderCatalog.Get(_uploadProvider).DisplayName 下载步骤</MudText>
+    <ol class="mb-4 ps-4">
+        @foreach (var step in DownloadGuide.Steps)
+        {
+            <li class="mb-1">@step</li>
+        }
+    </ol>
+    <MudButton Variant="Variant.Outlined"
+               Color="Color.Primary"
+               Href="@DownloadGuide.OfficialDownloadUrl"
+               Target="_blank"
+               Rel="noopener noreferrer"
+               StartIcon="@Icons.Material.Filled.OpenInNew">
+        打开官方下载页
+    </MudButton>
+</MudPaper>
+
+<MudGrid Class="mb-5">
+    <MudItem xs="12" lg="6">
+        <MudPaper Class="pa-5" Outlined Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom>从链接安装</MudText>
+            <MudAlert Severity="Severity.Info" Dense Class="mb-3">
+                仅支持安装包的最终 HTTP/HTTPS 文件直链；供应商下载中心或 Release 页面不能直接填入。
+            </MudAlert>
+            <MudSelect T="ProviderType" Label="供应商" @bind-Value="_urlRequest.ProviderType" Variant="Variant.Outlined" Class="mb-3">
+                @foreach (var provider in BuiltInProviderCatalog.All)
+                {
+                    <MudSelectItem Value="provider.Type">@provider.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField Label="版本号" @bind-Value="_urlRequest.Version" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField Label="HTTP/HTTPS 下载地址" @bind-Value="_urlRequest.Url" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField Label="SHA-256（可选）" @bind-Value="_urlRequest.Sha256" Variant="Variant.Outlined" Class="mb-3" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="InstallUrlAsync" Disabled="_busy">
+                下载并验证
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" lg="6">
+        <MudPaper Class="pa-5" Outlined Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom>上传安装包</MudText>
+            <MudSelect T="ProviderType" Label="供应商" @bind-Value="_uploadProvider" Variant="Variant.Outlined" Class="mb-3">
+                @foreach (var provider in BuiltInProviderCatalog.All)
+                {
+                    <MudSelectItem Value="provider.Type">@provider.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField Label="版本号" @bind-Value="_uploadVersion" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField Label="SHA-256（可选）" @bind-Value="_uploadSha256" Variant="Variant.Outlined" Class="mb-3" />
+            <MudFileUpload T="IBrowserFile"
+                           Files="_file"
+                           FilesChanged="SelectFile"
+                           Accept=".zip,.tar,.tar.gz,.tgz,.gz,.exe,application/zip,application/x-tar,application/gzip,application/octet-stream"
+                           MaxFileSize="MaxPackageBytes"
+                           SuppressOnChangeWhenInvalid
+                           DragAndDrop
+                           Disabled="_busy"
+                           Class="mud-width-full mb-3">
+                <CustomContent>
+                    <MudPaper Outlined Class="pa-4 mud-width-full d-flex flex-column align-center justify-center gap-2" Style="min-height: 132px;">
+                        <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Color="Color.Primary" Size="Size.Large" />
+                        <MudText Typo="Typo.body2">拖放 CLI 安装包到这里，或点击选择文件</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            ZIP、TAR、TAR.GZ、TGZ、GZ 或可执行文件，最大 256 MB
+                        </MudText>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.FolderOpen"
+                                   OnClick="@context.OpenFilePickerAsync"
+                                   Disabled="_busy">
+                            选择文件
+                        </MudButton>
+                    </MudPaper>
+                </CustomContent>
+                <SelectedTemplate />
+            </MudFileUpload>
+            <MudText Typo="Typo.caption" Class="my-2">@SelectedFileDescription</MudText>
+            @if (_uploading)
+            {
+                <MudProgressLinear Indeterminate Color="Color.Primary" Class="mb-3" />
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="UploadAsync" Disabled="@(_busy || _file is null)">
+                上传并验证
+            </MudButton>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate />
+}
+else if (_packages.Count == 0)
+{
+    <MudAlert Severity="Severity.Warning">尚未安装 CLI，隧道无法启动。</MudAlert>
+}
+else
+{
+    <MudTable Items="_packages" Hover Dense Outlined Elevation="0">
+        <HeaderContent>
+            <MudTh>供应商/版本</MudTh>
+            <MudTh>平台</MudTh>
+            <MudTh>SHA-256</MudTh>
+            <MudTh>安装时间</MudTh>
+            <MudTh>操作</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="版本">
+                <MudText Typo="Typo.body2">
+                    @BuiltInProviderCatalog.Get(context.ProviderType).DisplayName · @context.Version
+                </MudText>
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">活动版本</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="平台">
+                @context.OperatingSystem / @context.Architecture
+            </MudTd>
+            <MudTd DataLabel="SHA-256">
+                <MudText Typo="Typo.caption">@context.Sha256[..Math.Min(16, context.Sha256.Length)]…</MudText>
+            </MudTd>
+            <MudTd DataLabel="安装时间">
+                @context.InstalledAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            </MudTd>
+            <MudTd DataLabel="操作" Style="text-align:right">
+                <MudButton Size="Size.Small" Disabled="@(context.IsActive || _busy)" OnClick="() => ActivateAsync(context)">
+                    激活并重启
+                </MudButton>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               Disabled="@(context.IsActive || _busy)" OnClick="() => DeleteAsync(context)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}

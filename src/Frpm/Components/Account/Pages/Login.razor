@@ -1,0 +1,41 @@
+﻿@page "/Account/Login"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using Frpm.Data
+
+
+<PageTitle>登录</PageTitle>
+
+<MudPaper Elevation="2" Class="pa-6 pa-sm-8 mx-auto" Style="max-width: 460px">
+    <MudStack Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4">欢迎回来</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">使用管理员账号登录 FRP 管理平台</MudText>
+        </div>
+        <StatusMessage Message="@errorMessage" />
+        <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
+            <DataAnnotationsValidator />
+            <MudStack Spacing="3">
+                <div>
+                    <MudTextField @bind-Value="Input.Account" UserAttributes="AccountInputAttributes" Label="账号" Variant="Variant.Outlined" />
+                    <ValidationMessage For="@(() => Input.Account)" />
+                </div>
+                <div>
+                    <MudTextField @bind-Value="Input.Password" UserAttributes="PasswordInputAttributes" Label="密码" Variant="Variant.Outlined" InputType="InputType.Password" />
+                    <ValidationMessage For="@(() => Input.Password)" />
+                </div>
+                <label class="account-checkbox">
+                    <InputCheckbox @bind-Value="Input.RememberMe" Name="Input.RememberMe" />
+                    <span>记住我</span>
+                </label>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                           Size="Size.Large" FullWidth="true" StartIcon="@Icons.Material.Filled.Login">
+                    登录
+                </MudButton>
+                <MudLink Href="Account/ForgotPassword" Typo="Typo.body2">忘记密码？</MudLink>
+            </MudStack>
+        </EditForm>
+    </MudStack>
+</MudPaper>

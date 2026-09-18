@@ -1,0 +1,19 @@
+<MudNavMenu Class="pa-2">
+    <div class="frpm-brand px-3 py-4">
+        <img src="frpm-mark.svg" class="frpm-logo" alt="FRPM" />
+        <MudText Typo="Typo.h6" Class="frpm-wordmark">FRPM</MudText>
+    </div>
+    <AuthorizeView>
+        <Authorized Context="auth">
+            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">仪表盘</MudNavLink>
+            <MudNavLink Href="tunnels" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SwapHoriz">隧道</MudNavLink>
+            <MudNavLink Href="providers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CloudQueue">供应商账号</MudNavLink>
+            <MudNavLink Href="cli-packages" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SystemUpdateAlt">CLI 版本</MudNavLink>
+            <MudNavLink Href="runs" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Terminal">运行与日志</MudNavLink>
+            <MudNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">系统设置</MudNavLink>
+        </Authorized>
+        <NotAuthorized>
+            <MudNavLink Href="Account/Login" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Login">登录</MudNavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudNavMenu>
