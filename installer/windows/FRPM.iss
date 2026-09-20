@@ -18,13 +18,18 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist
-OutputBaseFilename=FRPM-Setup-{#MyAppVersion}-win-x64
+OutputBaseFilename=frpm-{#MyAppVersion}-win-x64-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName=FRPM
+SetupIconFile=frpm.ico
+UninstallDisplayIcon={app}\frpm.ico
 CloseApplications=yes
 RestartApplications=no
+
+[Languages]
+Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "starttray"; Description: "登录 Windows 后启动 FRPM 托盘图标"; Flags: checkedonce
@@ -32,6 +37,7 @@ Name: "starttray"; Description: "登录 Windows 后启动 FRPM 托盘图标"; Fl
 [Files]
 Source: "{#SourceDir}\server\*"; DestDir: "{app}\server"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourceDir}\tray\*"; DestDir: "{app}\tray"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "frpm.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "appsettings.json"; DestDir: "{commonappdata}\FRPM"; DestName: "appsettings.json"; Flags: onlyifdoesntexist
 
 [Registry]
@@ -80,6 +86,7 @@ begin
     '留空会创建新的 FRPM 数据目录。',
     False, '');
   LegacyDirectoryPage.Add('旧版 FRPM 目录：');
+  LegacyDirectoryPage.Values[0] := '';
 
   LegacyDataStoppedPage := CreateInputOptionPage(LegacyDirectoryPage.ID,
     '确认迁移',
@@ -93,6 +100,11 @@ end;
 function HasLegacyDirectory(): Boolean;
 begin
   Result := Trim(LegacyDirectoryPage.Values[0]) <> '';
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = LegacyDataStoppedPage.ID) and not HasLegacyDirectory();
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
