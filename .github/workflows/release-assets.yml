@@ -35,8 +35,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - rid: win-x64
-            archive: zip
           - rid: linux-x64
             archive: tar.gz
           - rid: linux-arm64
@@ -90,11 +88,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          if [[ "${{ matrix.archive }}" == zip ]]; then
-            (cd publish/${{ matrix.rid }} && zip -qr ../../dist/frpm-${{ env.RELEASE_TAG }}-${{ matrix.rid }}.zip FRPM)
-          else
-            tar -C publish/${{ matrix.rid }} -czf dist/frpm-${{ env.RELEASE_TAG }}-${{ matrix.rid }}.tar.gz FRPM
-          fi
+          tar -C publish/${{ matrix.rid }} -czf dist/frpm-${{ env.RELEASE_TAG }}-${{ matrix.rid }}.tar.gz FRPM
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
@@ -133,11 +127,12 @@ jobs:
         run: |
           $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           $sourceDir = Join-Path $env:GITHUB_WORKSPACE 'publish\win-x64'
+          & installer/windows/New-FrpmIcon.ps1 -OutputPath installer/windows/frpm.ico
           & $compiler "/DMyAppVersion=${env:RELEASE_TAG}" "/DSourceDir=$sourceDir" installer/windows/FRPM.iss
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          files: dist/FRPM-Setup-*-win-x64.exe
+          files: dist/frpm-*-win-x64-setup.exe
           fail_on_unmatched_files: true
