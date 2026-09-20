@@ -32,6 +32,7 @@
     <Project Path="src/Frpm.Domain/Frpm.Domain.csproj" Id="4ca5e938-8a80-411c-8fce-830ae794f4de" />
     <Project Path="src/Frpm.Infrastructure/Frpm.Infrastructure.csproj" />
     <Project Path="src/Frpm/Frpm.csproj" />
+    <Project Path="src/Frpm.Tray/Frpm.Tray.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Frpm.Infrastructure.Tests/Frpm.Infrastructure.Tests.csproj" />
