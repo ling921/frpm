@@ -122,6 +122,10 @@ jobs:
         shell: pwsh
         run: choco install innosetup --no-progress --yes
 
+      - name: Download Simplified Chinese installer language
+        shell: pwsh
+        run: Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl' -OutFile installer/windows/ChineseSimplified.isl
+
       - name: Build installer
         shell: pwsh
         run: |
