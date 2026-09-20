@@ -7,7 +7,33 @@ using Ling.RemoteServices.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+var serviceMode = OperatingSystem.IsWindows()
+    && args.Any(argument => string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase));
+
+if (serviceMode)
+{
+    var serviceDataDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "FRPM");
+    Directory.CreateDirectory(serviceDataDirectory);
+    Directory.SetCurrentDirectory(serviceDataDirectory);
+}
+
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args.Where(argument => !string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase)).ToArray(),
+    ContentRootPath = serviceMode ? AppContext.BaseDirectory : null
+});
+
+if (serviceMode)
+{
+    builder.Host.UseWindowsService();
+    builder.Configuration.AddJsonFile(
+        Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
+        optional: true,
+        reloadOnChange: true);
+}
+
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();

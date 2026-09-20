@@ -10,6 +10,10 @@ on:
         description: Existing Git tag to which the native packages are uploaded
         required: true
         type: string
+      source_ref:
+        description: Branch, tag, or commit to build when dispatching manually
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -20,6 +24,7 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+  SOURCE_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref }}
 
 jobs:
   publish:
@@ -41,7 +46,7 @@ jobs:
       - name: Checkout release tag
         uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ env.SOURCE_REF }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
@@ -57,6 +62,16 @@ jobs:
           --property:PublishNativeRelease=true
           --output publish/${{ matrix.rid }}/FRPM
 
+      - name: Publish tray application
+        run: >-
+          dotnet publish src/Frpm.Tray/Frpm.Tray.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --property:PublishSingleFile=true
+          --property:IncludeNativeLibrariesForSelfExtract=true
+          --output publish/${{ matrix.rid }}/FRPM/tray
+
       - name: Add startup helper
         shell: bash
         run: |
@@ -65,6 +80,10 @@ jobs:
           else
             printf '#!/usr/bin/env sh\nset -eu\nexec ./Frpm\n' > publish/${{ matrix.rid }}/FRPM/start.sh
             chmod +x publish/${{ matrix.rid }}/FRPM/start.sh
+            mkdir -p publish/${{ matrix.rid }}/FRPM/systemd
+            cp installer/linux/frpm.service publish/${{ matrix.rid }}/FRPM/systemd/frpm.service
+            cp installer/linux/install-systemd.sh publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh
+            chmod +x publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh
           fi
 
       - name: Package release asset
@@ -82,4 +101,42 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           files: dist/*
+          fail_on_unmatched_files: true
+
+  windows-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish FRPM service and tray application
+        shell: pwsh
+        run: |
+          dotnet publish src/Frpm/Frpm.csproj --configuration Release --runtime win-x64 --self-contained true --property:PublishNativeRelease=true --output publish/win-x64/server
+          dotnet publish src/Frpm.Tray/Frpm.Tray.csproj --configuration Release --runtime win-x64 --self-contained true --property:PublishSingleFile=true --property:IncludeNativeLibrariesForSelfExtract=true --output publish/win-x64/tray
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          & $compiler "/DMyAppVersion=${env:RELEASE_TAG}" "/DSourceDir=publish\win-x64" installer/windows/FRPM.iss
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: dist/FRPM-Setup-*-win-x64.exe
           fail_on_unmatched_files: true

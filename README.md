@@ -47,6 +47,10 @@ docker compose up -d
 | Linux x64 | `frpm-<版本>-linux-x64.tar.gz` |
 | Linux ARM64 | `frpm-<版本>-linux-arm64.tar.gz` |
 
+Windows 用户可优先下载 `FRPM-Setup-<版本>-win-x64.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8080`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
+
+安装器支持从旧压缩包版迁移：在向导中选择包含 `data` 文件夹的旧 `FRPM` 目录，并先停止旧版程序。数据库、凭据密钥、CLI 文件与日志会一并复制。更新安装版时会保留现有数据和自定义配置。
+
 解压后请始终从 `FRPM` 目录启动，并将该目录及其中的 `data` 目录一并保留。升级时覆盖程序文件即可；不要删除 `data`，其中包含数据库、加密密钥、CLI 文件和运行日志。
 
 ### 启动
@@ -66,6 +70,16 @@ cd FRPM
 chmod +x Frpm start.sh
 ./start.sh
 ```
+
+如需在 Linux 上作为后台服务运行，在解压后的 `FRPM` 目录执行：
+
+```bash
+sudo ./systemd/install-systemd.sh
+```
+
+该命令创建并启动 `frpm.service`。可使用 `systemctl status frpm` 查看状态，使用 `sudo systemctl disable --now frpm` 停止并取消开机启动。
+
+在带图形桌面的 Linux 主机上，可执行 `./tray/Frpm.Tray` 显示托盘图标并打开管理页面。Linux 托盘依赖桌面环境的 StatusNotifierItem 或 AppIndicator 支持；服务运行不依赖托盘。
 
 默认通过 `appsettings.json` 中的 `Urls` 配置监听 `http://+:8080`。首次启动后访问 `http://服务器地址:8080`。
 

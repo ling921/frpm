@@ -1,0 +1,15 @@
+[Unit]
+Description=FRPM
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=__FRPM_INSTALL_DIR__
+ExecStart=__FRPM_INSTALL_DIR__/Frpm
+Restart=on-failure
+RestartSec=5
+Environment=ASPNETCORE_ENVIRONMENT=Production
+
+[Install]
+WantedBy=multi-user.target
