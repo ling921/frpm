@@ -132,7 +132,8 @@ jobs:
         shell: pwsh
         run: |
           $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
-          & $compiler "/DMyAppVersion=${env:RELEASE_TAG}" "/DSourceDir=publish\win-x64" installer/windows/FRPM.iss
+          $sourceDir = Join-Path $env:GITHUB_WORKSPACE 'publish\win-x64'
+          & $compiler "/DMyAppVersion=${env:RELEASE_TAG}" "/DSourceDir=$sourceDir" installer/windows/FRPM.iss
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
