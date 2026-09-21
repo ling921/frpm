@@ -6,8 +6,8 @@ services:
     pull_policy: always
     restart: unless-stopped
     ports:
-      # 可选：修改左侧端口以更换宿主机访问端口，例如 "9000:8080"。
-      - "8080:8080"
+      # 可选：修改左侧端口以更换宿主机访问端口，例如 "9000:8180"。
+      - "8180:8180"
     volumes:
       # 必需：持久化数据库、Data Protection 密钥、CLI 包与运行日志。
       - frpm-data:/data

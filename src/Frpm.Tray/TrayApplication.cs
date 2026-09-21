@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -9,8 +10,9 @@ namespace Frpm.Tray;
 
 internal sealed class TrayApplication : Application
 {
-    private static readonly Uri DashboardUri = new("http://127.0.0.1:8080/");
+    private static readonly Uri DefaultDashboardUri = new("http://127.0.0.1:8180/");
     private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(3) };
+    private Uri _dashboardUri = DefaultDashboardUri;
     private DispatcherTimer? _statusTimer;
     private TrayIcon? _trayIcon;
     private NativeMenuItem? _statusMenuItem;
@@ -69,6 +71,7 @@ internal sealed class TrayApplication : Application
 
     private async Task RefreshStatusAsync()
     {
+        _dashboardUri = LoadDashboardUri();
         var isDashboardAvailable = await IsDashboardAvailableAsync();
         var serviceState = await GetServiceStateAsync();
         var status = GetStatusText(isDashboardAvailable, serviceState);
@@ -98,7 +101,7 @@ internal sealed class TrayApplication : Application
     {
         try
         {
-            using var response = await _httpClient.GetAsync(new Uri(DashboardUri, "health"));
+            using var response = await _httpClient.GetAsync(new Uri(_dashboardUri, "health"));
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException)
@@ -171,6 +174,48 @@ internal sealed class TrayApplication : Application
         _ => "服务状态：不可访问"
     };
 
+    private static Uri LoadDashboardUri()
+    {
+        var configurationPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "FRPM",
+            "appsettings.json");
+        if (!File.Exists(configurationPath))
+        {
+            return DefaultDashboardUri;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(configurationPath));
+            if (!document.RootElement.TryGetProperty("Urls", out var urlsElement))
+            {
+                return DefaultDashboardUri;
+            }
+
+            foreach (var value in urlsElement.GetString()?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+            {
+                if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+                    && uri.Scheme == Uri.UriSchemeHttp
+                    && (uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                        || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new UriBuilder(uri) { Path = "/" }.Uri;
+                }
+            }
+        }
+        catch (IOException)
+        {
+            // A configuration update may be in progress. Use the default until the next refresh.
+        }
+        catch (JsonException)
+        {
+            // An invalid configuration is surfaced by the service logs.
+        }
+
+        return DefaultDashboardUri;
+    }
+
     private async Task ManageServiceAsync(string action, string pendingMessage)
     {
         if (_statusMenuItem is not null)
@@ -211,9 +256,10 @@ internal sealed class TrayApplication : Application
         await RefreshStatusAsync();
     }
 
-    private static void OpenDashboard()
+    private void OpenDashboard()
     {
-        Process.Start(new ProcessStartInfo(DashboardUri.AbsoluteUri) { UseShellExecute = true });
+        _dashboardUri = LoadDashboardUri();
+        Process.Start(new ProcessStartInfo(_dashboardUri.AbsoluteUri) { UseShellExecute = true });
     }
 
     private static void OpenLogDirectory()
