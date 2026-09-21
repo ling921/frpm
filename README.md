@@ -76,7 +76,7 @@ chmod +x Frpm start.sh
 sudo ./systemd/install-systemd.sh
 ```
 
-该命令创建并启动 `frpm.service`。可使用 `systemctl status frpm` 查看状态，使用 `sudo systemctl disable --now frpm` 停止并取消开机启动。
+该命令创建并启动 `frpm.service`。可使用 `--port` 或 `-p` 指定管理端口，例如 `sudo ./systemd/install-systemd.sh --port 9000`。可使用 `systemctl status frpm` 查看状态，使用 `sudo systemctl disable --now frpm` 停止并取消开机启动。
 
 在带图形桌面的 Linux 主机上，可执行 `./tray/Frpm.Tray` 显示托盘图标并打开管理页面。Linux 托盘依赖桌面环境的 StatusNotifierItem 或 AppIndicator 支持；服务运行不依赖托盘。
 
