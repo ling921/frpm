@@ -14,6 +14,7 @@ AppPublisher=FRPM Contributors
 DefaultDirName={autopf}\FRPM
 DefaultGroupName=FRPM
 DisableProgramGroupPage=yes
+DisableDirPage=yes
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -25,7 +26,7 @@ WizardStyle=modern
 UninstallDisplayName=FRPM
 SetupIconFile=frpm.ico
 UninstallDisplayIcon={app}\frpm.ico
-CloseApplications=yes
+CloseApplications=no
 RestartApplications=no
 
 [Languages]
@@ -47,8 +48,6 @@ Filename: "{app}\tray\Frpm.Tray.exe"; Description: "启动 FRPM 托盘图标"; F
 
 [Code]
 var
-  LegacyDirectoryPage: TInputQueryWizardPage;
-  LegacyDataStoppedPage: TInputOptionWizardPage;
   PortPage: TInputQueryWizardPage;
   ServiceAlreadyInstalled: Boolean;
 
@@ -79,23 +78,7 @@ end;
 
 procedure InitializeWizard;
 begin
-  LegacyDirectoryPage := CreateInputQueryPage(wpSelectDir,
-    '迁移现有 FRPM 数据',
-    '选择旧版 FRPM 目录（可选）',
-    '若要从压缩包版升级，请选择包含 data 目录的旧 FRPM 文件夹。' + #13#10 +
-    '留空会创建新的 FRPM 数据目录。');
-  LegacyDirectoryPage.Add('旧版 FRPM 目录：', False);
-  LegacyDirectoryPage.Values[0] := '';
-
-  LegacyDataStoppedPage := CreateInputOptionPage(LegacyDirectoryPage.ID,
-    '确认迁移',
-    '旧版 FRPM 已停止',
-    '迁移会复制旧版 data 目录。请先关闭旧版 FRPM，避免复制到不完整的数据库或密钥。',
-    True, False);
-  LegacyDataStoppedPage.Add('我已停止旧版 FRPM');
-  LegacyDataStoppedPage.SelectedValueIndex := 0;
-
-  PortPage := CreateInputQueryPage(LegacyDataStoppedPage.ID,
+  PortPage := CreateInputQueryPage(wpWelcome,
     '配置管理端口',
     '选择本机管理页面端口',
     'FRPM 默认只监听本机回环地址。可按需修改端口，避免与本地开发服务冲突。');
@@ -103,36 +86,14 @@ begin
   PortPage.Values[0] := '8180';
 end;
 
-function HasLegacyDirectory(): Boolean;
-begin
-  Result := Trim(LegacyDirectoryPage.Values[0]) <> '';
-end;
-
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := ((PageID = LegacyDataStoppedPage.ID) and not HasLegacyDirectory())
-    or ((PageID = PortPage.ID) and FileExists(ExpandConstant('{commonappdata}\FRPM\appsettings.json')) and ServiceExists());
+  Result := (PageID = PortPage.ID) and FileExists(ExpandConstant('{commonappdata}\FRPM\appsettings.json')) and ServiceExists();
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if (CurPageID = LegacyDirectoryPage.ID) and HasLegacyDirectory() then
-  begin
-    if not DirExists(AddBackslash(LegacyDirectoryPage.Values[0]) + 'data') then
-    begin
-      MsgBox('所选目录中未找到 data 文件夹。请选择旧版 FRPM 根目录，或留空继续。', mbError, MB_OK);
-      Result := False;
-    end;
-  end;
-
-  if (CurPageID = LegacyDataStoppedPage.ID) and HasLegacyDirectory()
-    and (LegacyDataStoppedPage.SelectedValueIndex <> 0) then
-  begin
-    MsgBox('请确认旧版 FRPM 已停止后再继续迁移。', mbError, MB_OK);
-    Result := False;
-  end;
-
   if CurPageID = PortPage.ID then
   begin
     if (StrToIntDef(Trim(PortPage.Values[0]), 0) < 1)
@@ -183,26 +144,6 @@ begin
   end;
 end;
 
-procedure CopyLegacyData();
-var
-  SourceDirectory: String;
-  TargetDirectory: String;
-  ResultCode: Integer;
-begin
-  if not HasLegacyDirectory() then
-    Exit;
-
-  TargetDirectory := ExpandConstant('{commonappdata}\FRPM\data');
-  if FileExists(AddBackslash(TargetDirectory) + 'frpm.db') then
-    Exit;
-
-  SourceDirectory := AddBackslash(LegacyDirectoryPage.Values[0]) + 'data';
-  if not Exec(ExpandConstant('{cmd}'), '/C xcopy /E /I /H /Y ' + AddQuotes(SourceDirectory) + ' ' + AddQuotes(TargetDirectory), '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
-  begin
-    RaiseException('无法迁移旧版 data 目录。安装已取消，原有数据未被删除。');
-  end;
-end;
-
 function ServiceParameters(): String;
 begin
   Result := 'binPath= ' + AddQuotes(ExpandConstant('{app}\server\Frpm.exe')) + ' start= auto DisplayName= ' + AddQuotes('FRPM');
@@ -227,16 +168,18 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
 begin
   if CurStep = ssInstall then
   begin
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM Frpm.Tray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     ServiceAlreadyInstalled := ServiceExists();
     StopService();
   end;
 
   if CurStep = ssPostInstall then
   begin
-    CopyLegacyData();
     WriteDefaultConfiguration();
     RegisterAndStartService();
   end;
@@ -248,6 +191,7 @@ var
 begin
   if CurUninstallStep = usUninstall then
   begin
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM Frpm.Tray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{sys}\sc.exe'), 'stop FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{sys}\sc.exe'), 'delete FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
