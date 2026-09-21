@@ -176,41 +176,49 @@ internal sealed class TrayApplication : Application
 
     private static Uri LoadDashboardUri()
     {
-        var configurationPath = Path.Combine(
+        var configurationDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "FRPM",
-            "appsettings.json");
-        if (!File.Exists(configurationPath))
+            "FRPM");
+        var configurationPaths = new[]
         {
-            return DefaultDashboardUri;
-        }
+            Path.Combine(configurationDirectory, "appsettings.Production.json"),
+            Path.Combine(configurationDirectory, "appsettings.json")
+        };
 
-        try
+        foreach (var configurationPath in configurationPaths)
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(configurationPath));
-            if (!document.RootElement.TryGetProperty("Urls", out var urlsElement))
+            if (!File.Exists(configurationPath))
             {
-                return DefaultDashboardUri;
+                continue;
             }
 
-            foreach (var value in urlsElement.GetString()?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+            try
             {
-                if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
-                    && uri.Scheme == Uri.UriSchemeHttp
-                    && (uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
-                        || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)))
+                using var document = JsonDocument.Parse(File.ReadAllText(configurationPath));
+                if (!document.RootElement.TryGetProperty("Urls", out var urlsElement))
                 {
-                    return new UriBuilder(uri) { Path = "/" }.Uri;
+                    continue;
+                }
+
+                foreach (var value in urlsElement.GetString()?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [])
+                {
+                    if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+                        && uri.Scheme == Uri.UriSchemeHttp
+                        && (uri.Host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                            || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return new UriBuilder(uri) { Path = "/" }.Uri;
+                    }
                 }
             }
-        }
-        catch (IOException)
-        {
-            // A configuration update may be in progress. Use the default until the next refresh.
-        }
-        catch (JsonException)
-        {
-            // An invalid configuration is surfaced by the service logs.
+            catch (IOException)
+            {
+                // A configuration update may be in progress. Check the next available file.
+            }
+            catch (JsonException)
+            {
+                // An invalid configuration is surfaced by the service logs.
+            }
         }
 
         return DefaultDashboardUri;

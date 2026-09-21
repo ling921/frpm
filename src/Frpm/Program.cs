@@ -33,7 +33,11 @@ if (useWindowsInstallationDataDirectory)
     builder.Configuration.AddJsonFile(
         Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
         optional: true,
-        reloadOnChange: true);
+        reloadOnChange: true)
+        .AddJsonFile(
+            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.Production.json"),
+            optional: true,
+            reloadOnChange: true);
 }
 
 builder.Logging.ClearProviders();
