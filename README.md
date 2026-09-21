@@ -35,7 +35,7 @@ docker compose pull
 docker compose up -d
 ```
 
-打开 `http://localhost:8080`。
+打开 `http://localhost:8180`。
 
 ## 原生部署（Windows / Linux）
 
@@ -46,7 +46,7 @@ docker compose up -d
 | Linux x64 | `frpm-<版本>-linux-x64.tar.gz` |
 | Linux ARM64 | `frpm-<版本>-linux-arm64.tar.gz` |
 
-Windows 用户可下载 `frpm-<版本>-win-x64-setup.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8080`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
+Windows 用户可下载 `frpm-<版本>-win-x64-setup.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8180`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
 
 安装器支持从旧压缩包版迁移：在向导中选择包含 `data` 文件夹的旧 `FRPM` 目录，并先停止旧版程序。数据库、凭据密钥、CLI 文件与日志会一并复制。更新安装版时会保留现有数据和自定义配置。
 
@@ -80,7 +80,7 @@ sudo ./systemd/install-systemd.sh
 
 在带图形桌面的 Linux 主机上，可执行 `./tray/Frpm.Tray` 显示托盘图标并打开管理页面。Linux 托盘依赖桌面环境的 StatusNotifierItem 或 AppIndicator 支持；服务运行不依赖托盘。
 
-默认通过 `appsettings.json` 中的 `Urls` 配置监听 `http://+:8080`。首次启动后访问 `http://服务器地址:8080`。
+默认通过 `appsettings.json` 中的 `Urls` 配置监听 `http://+:8180`。首次启动后访问 `http://服务器地址:8180`。
 
 ### 修改配置
 
@@ -92,7 +92,7 @@ sudo ./systemd/install-systemd.sh
 
 ```json
 {
-  "Urls": "http://+:8080;http://+:9000"
+  "Urls": "http://+:8180;http://+:9000"
 }
 ```
 

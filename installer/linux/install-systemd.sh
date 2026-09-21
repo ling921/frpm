@@ -18,4 +18,4 @@ fi
 sed "s|__FRPM_INSTALL_DIR__|$install_dir|g" "$unit_source" > "$unit_target"
 systemctl daemon-reload
 systemctl enable --now frpm.service
-echo "FRPM is running as a systemd service. Open http://127.0.0.1:8080 on this machine."
+echo "FRPM is running as a systemd service. Open http://127.0.0.1:8180 on this machine."

@@ -14,10 +14,10 @@ RUN apt-get update \
     && chown -R app:app /data /app
 USER app
 COPY --from=build --chown=app:app /app/publish .
-ENV ASPNETCORE_URLS=http://+:8080 \
+ENV ASPNETCORE_URLS=http://+:8180 \
     ConnectionStrings__DefaultConnection="Data Source=/data/frpm.db" \
     Frpm__Storage__DataDirectory=/data
-EXPOSE 8080
+EXPOSE 8180
 VOLUME ["/data"]
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD curl --fail http://127.0.0.1:8080/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD curl --fail http://127.0.0.1:8180/health || exit 1
 ENTRYPOINT ["dotnet", "Frpm.dll"]

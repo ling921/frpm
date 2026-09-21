@@ -38,7 +38,6 @@ Name: "starttray"; Description: "登录 Windows 后启动 FRPM 托盘图标"; Fl
 Source: "{#SourceDir}\server\*"; DestDir: "{app}\server"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourceDir}\tray\*"; DestDir: "{app}\tray"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "frpm.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "appsettings.json"; DestDir: "{commonappdata}\FRPM"; DestName: "appsettings.json"; Flags: onlyifdoesntexist
 
 [Registry]
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "FRPM Tray"; ValueData: """{app}\tray\Frpm.Tray.exe"""; Tasks: starttray; Flags: uninsdeletevalue
@@ -50,6 +49,7 @@ Filename: "{app}\tray\Frpm.Tray.exe"; Description: "启动 FRPM 托盘图标"; F
 var
   LegacyDirectoryPage: TInputQueryWizardPage;
   LegacyDataStoppedPage: TInputOptionWizardPage;
+  PortPage: TInputQueryWizardPage;
   ServiceAlreadyInstalled: Boolean;
 
 function ServiceExists(): Boolean;
@@ -94,6 +94,13 @@ begin
     True, False);
   LegacyDataStoppedPage.Add('我已停止旧版 FRPM');
   LegacyDataStoppedPage.SelectedValueIndex := 0;
+
+  PortPage := CreateInputQueryPage(LegacyDataStoppedPage.ID,
+    '配置管理端口',
+    '选择本机管理页面端口',
+    'FRPM 默认只监听本机回环地址。可按需修改端口，避免与本地开发服务冲突。');
+  PortPage.Add('管理端口：', False);
+  PortPage.Values[0] := '8180';
 end;
 
 function HasLegacyDirectory(): Boolean;
@@ -103,7 +110,8 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = LegacyDataStoppedPage.ID) and not HasLegacyDirectory();
+  Result := ((PageID = LegacyDataStoppedPage.ID) and not HasLegacyDirectory())
+    or ((PageID = PortPage.ID) and FileExists(ExpandConstant('{commonappdata}\FRPM\appsettings.json')));
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -124,6 +132,43 @@ begin
     MsgBox('请确认旧版 FRPM 已停止后再继续迁移。', mbError, MB_OK);
     Result := False;
   end;
+
+  if CurPageID = PortPage.ID then
+  begin
+    if (StrToIntDef(Trim(PortPage.Values[0]), 0) < 1)
+      or (StrToIntDef(Trim(PortPage.Values[0]), 0) > 65535) then
+    begin
+      MsgBox('请输入 1 到 65535 之间的管理端口。', mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+end;
+
+procedure WriteDefaultConfiguration();
+var
+  ConfigurationPath: String;
+  Configuration: String;
+begin
+  ConfigurationPath := ExpandConstant('{commonappdata}\FRPM\appsettings.json');
+  if FileExists(ConfigurationPath) then
+    Exit;
+
+  Configuration := '{' + #13#10 +
+    '  "Urls": "http://127.0.0.1:' + Trim(PortPage.Values[0]) + '",' + #13#10 +
+    '  "ConnectionStrings": {' + #13#10 +
+    '    "DefaultConnection": "Data Source=data/frpm.db"' + #13#10 +
+    '  },' + #13#10 +
+    '  "Frpm": {' + #13#10 +
+    '    "Storage": {' + #13#10 +
+    '      "DataDirectory": "data",' + #13#10 +
+    '      "LogRetentionDays": 30,' + #13#10 +
+    '      "MaxLogBytes": 536870912,' + #13#10 +
+    '      "MaxPackageBytes": 268435456' + #13#10 +
+    '    }' + #13#10 +
+    '  }' + #13#10 +
+    '}' + #13#10;
+  if not SaveStringToFile(ConfigurationPath, Configuration, False) then
+    RaiseException('无法创建 FRPM 配置文件。');
 end;
 
 procedure CopyLegacyData();
@@ -180,6 +225,7 @@ begin
   if CurStep = ssPostInstall then
   begin
     CopyLegacyData();
+    WriteDefaultConfiguration();
     RegisterAndStartService();
   end;
 end;
