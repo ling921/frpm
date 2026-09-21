@@ -43,11 +43,10 @@ docker compose up -d
 
 | 系统与架构 | 文件 |
 | --- | --- |
-| Windows x64 | `frpm-<版本>-win-x64.zip` |
 | Linux x64 | `frpm-<版本>-linux-x64.tar.gz` |
 | Linux ARM64 | `frpm-<版本>-linux-arm64.tar.gz` |
 
-Windows 用户可优先下载 `FRPM-Setup-<版本>-win-x64.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8080`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
+Windows 用户可下载 `frpm-<版本>-win-x64-setup.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8080`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
 
 安装器支持从旧压缩包版迁移：在向导中选择包含 `data` 文件夹的旧 `FRPM` 目录，并先停止旧版程序。数据库、凭据密钥、CLI 文件与日志会一并复制。更新安装版时会保留现有数据和自定义配置。
 
@@ -139,17 +138,15 @@ Linux 路径示例：
 密码：Frpm@123
 ```
 
-登录页的“账号”字段应填写 `admin`，不应填写邮箱地址 `admin@frpm.local`。
-
 首次登录后必须修改默认密码。初始管理员只会在全新数据库中创建一次。
 
-如果管理员无法登录且未配置邮件服务，请在运行 FRPM 的服务器上执行：
+如果管理员无法登录且未配置邮件服务，请先停止 FRPM，再在运行 FRPM 的服务器上执行：
 
 ```bash
-dotnet Frpm.dll --reset-admin-password
+./Frpm --reset-admin-password
 ```
 
-该命令会输出随机临时密码、使已有会话失效，并要求下次登录后修改密码。请只在受信任的本地终端执行，且不要将命令输出写入日志。
+Windows 安装版应在管理员 PowerShell 中执行 `& "$env:ProgramFiles\FRPM\server\Frpm.exe" --reset-admin-password`；Linux systemd 安装可在解压后的 FRPM 目录执行 `./Frpm --reset-admin-password`。重置命令会输出随机临时密码、使已有会话失效，并要求下次登录后修改密码。请只在受信任的本地终端执行，且不要将命令输出写入日志。
 
 ## 第一次使用
 

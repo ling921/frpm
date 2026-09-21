@@ -8,9 +8,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using MudBlazor.Services;
 
+var resetAdminPassword = args.Any(argument => string.Equals(argument, "--reset-admin-password", StringComparison.OrdinalIgnoreCase));
 var serviceMode = OperatingSystem.IsWindows() && WindowsServiceHelpers.IsWindowsService();
+var useWindowsInstallationDataDirectory = OperatingSystem.IsWindows() && (serviceMode || resetAdminPassword);
 
-if (serviceMode)
+if (useWindowsInstallationDataDirectory)
 {
     var serviceDataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
@@ -21,11 +23,11 @@ if (serviceMode)
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
-    Args = args,
-    ContentRootPath = serviceMode ? AppContext.BaseDirectory : null
+    Args = args.Where(argument => !string.Equals(argument, "--reset-admin-password", StringComparison.OrdinalIgnoreCase)).ToArray(),
+    ContentRootPath = useWindowsInstallationDataDirectory ? AppContext.BaseDirectory : null
 });
 
-if (serviceMode)
+if (useWindowsInstallationDataDirectory)
 {
     builder.Host.UseWindowsService();
     builder.Configuration.AddJsonFile(
@@ -84,6 +86,15 @@ await using (var scope = app.Services.CreateAsyncScope())
     await InitialAdminSeeder.SeedAsync(
         scope.ServiceProvider,
         scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("InitialAdminSeeder"));
+
+    if (resetAdminPassword)
+    {
+        var temporaryPassword = await InitialAdminSeeder.ResetPasswordAsync(
+            scope.ServiceProvider,
+            scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("InitialAdminSeeder"));
+        Console.WriteLine($"FRPM administrator password reset. Username: {InitialAdminSeeder.UserName}; Temporary password: {temporaryPassword}");
+        return;
+    }
 }
 
 // Configure the HTTP request pipeline.
