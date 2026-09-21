@@ -111,7 +111,7 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := ((PageID = LegacyDataStoppedPage.ID) and not HasLegacyDirectory())
-    or ((PageID = PortPage.ID) and FileExists(ExpandConstant('{commonappdata}\FRPM\appsettings.json')));
+    or ((PageID = PortPage.ID) and FileExists(ExpandConstant('{commonappdata}\FRPM\appsettings.json')) and ServiceExists());
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -147,28 +147,40 @@ end;
 procedure WriteDefaultConfiguration();
 var
   ConfigurationPath: String;
+  OverrideConfigurationPath: String;
   Configuration: String;
 begin
   ConfigurationPath := ExpandConstant('{commonappdata}\FRPM\appsettings.json');
-  if FileExists(ConfigurationPath) then
+  if not FileExists(ConfigurationPath) then
+  begin
+    Configuration := '{' + #13#10 +
+      '  "Urls": "http://127.0.0.1:' + Trim(PortPage.Values[0]) + '",' + #13#10 +
+      '  "ConnectionStrings": {' + #13#10 +
+      '    "DefaultConnection": "Data Source=data/frpm.db"' + #13#10 +
+      '  },' + #13#10 +
+      '  "Frpm": {' + #13#10 +
+      '    "Storage": {' + #13#10 +
+      '      "DataDirectory": "data",' + #13#10 +
+      '      "LogRetentionDays": 30,' + #13#10 +
+      '      "MaxLogBytes": 536870912,' + #13#10 +
+      '      "MaxPackageBytes": 268435456' + #13#10 +
+      '    }' + #13#10 +
+      '  }' + #13#10 +
+      '}' + #13#10;
+    if not SaveStringToFile(ConfigurationPath, Configuration, False) then
+      RaiseException('无法创建 FRPM 配置文件。');
     Exit;
+  end;
 
-  Configuration := '{' + #13#10 +
-    '  "Urls": "http://127.0.0.1:' + Trim(PortPage.Values[0]) + '",' + #13#10 +
-    '  "ConnectionStrings": {' + #13#10 +
-    '    "DefaultConnection": "Data Source=data/frpm.db"' + #13#10 +
-    '  },' + #13#10 +
-    '  "Frpm": {' + #13#10 +
-    '    "Storage": {' + #13#10 +
-    '      "DataDirectory": "data",' + #13#10 +
-    '      "LogRetentionDays": 30,' + #13#10 +
-    '      "MaxLogBytes": 536870912,' + #13#10 +
-    '      "MaxPackageBytes": 268435456' + #13#10 +
-    '    }' + #13#10 +
-    '  }' + #13#10 +
-    '}' + #13#10;
-  if not SaveStringToFile(ConfigurationPath, Configuration, False) then
-    RaiseException('无法创建 FRPM 配置文件。');
+  if not ServiceAlreadyInstalled then
+  begin
+    OverrideConfigurationPath := ExpandConstant('{commonappdata}\FRPM\appsettings.Production.json');
+    Configuration := '{' + #13#10 +
+      '  "Urls": "http://127.0.0.1:' + Trim(PortPage.Values[0]) + '"' + #13#10 +
+      '}' + #13#10;
+    if not SaveStringToFile(OverrideConfigurationPath, Configuration, False) then
+      RaiseException('无法更新 FRPM 管理端口配置。');
+  end;
 end;
 
 procedure CopyLegacyData();
