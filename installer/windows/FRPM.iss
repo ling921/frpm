@@ -148,7 +148,7 @@ end;
 
 function ServiceParameters(): String;
 begin
-  Result := 'binPath= ' + AddQuotes(AddQuotes(ExpandConstant('{app}\server\Frpm.exe')) + ' --service') + ' start= auto DisplayName= ' + AddQuotes('FRPM');
+  Result := 'binPath= ' + AddQuotes(ExpandConstant('{app}\server\Frpm.exe')) + ' start= auto DisplayName= ' + AddQuotes('FRPM');
 end;
 
 procedure RegisterAndStartService();
@@ -163,7 +163,7 @@ begin
 
   if not Exec(ExpandConstant('{sys}\sc.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
   begin
-    RaiseException('无法注册 FRPM Windows 服务。');
+    RaiseException(Format('无法注册 FRPM Windows 服务。sc.exe 返回代码：%d。', [ResultCode]));
   end;
 
   Exec(ExpandConstant('{sys}\sc.exe'), 'start FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);

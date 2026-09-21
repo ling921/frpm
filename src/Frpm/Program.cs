@@ -5,10 +5,10 @@ using Frpm.Generated;
 using Frpm.Infrastructure.Extensions;
 using Ling.RemoteServices.AspNetCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using MudBlazor.Services;
 
-var serviceMode = OperatingSystem.IsWindows()
-    && args.Any(argument => string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase));
+var serviceMode = OperatingSystem.IsWindows() && WindowsServiceHelpers.IsWindowsService();
 
 if (serviceMode)
 {
@@ -21,7 +21,7 @@ if (serviceMode)
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
-    Args = args.Where(argument => !string.Equals(argument, "--service", StringComparison.OrdinalIgnoreCase)).ToArray(),
+    Args = args,
     ContentRootPath = serviceMode ? AppContext.BaseDirectory : null
 });
 
