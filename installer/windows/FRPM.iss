@@ -48,7 +48,7 @@ Filename: "{app}\tray\Frpm.Tray.exe"; Description: "启动 FRPM 托盘图标"; F
 
 [Code]
 var
-  LegacyDirectoryPage: TInputDirWizardPage;
+  LegacyDirectoryPage: TInputQueryWizardPage;
   LegacyDataStoppedPage: TInputOptionWizardPage;
   ServiceAlreadyInstalled: Boolean;
 
@@ -79,13 +79,12 @@ end;
 
 procedure InitializeWizard;
 begin
-  LegacyDirectoryPage := CreateInputDirPage(wpSelectDir,
+  LegacyDirectoryPage := CreateInputQueryPage(wpSelectDir,
     '迁移现有 FRPM 数据',
     '选择旧版 FRPM 目录（可选）',
     '若要从压缩包版升级，请选择包含 data 目录的旧 FRPM 文件夹。' + #13#10 +
-    '留空会创建新的 FRPM 数据目录。',
-    False, '');
-  LegacyDirectoryPage.Add('旧版 FRPM 目录：');
+    '留空会创建新的 FRPM 数据目录。');
+  LegacyDirectoryPage.Add('旧版 FRPM 目录：', False);
   LegacyDirectoryPage.Values[0] := '';
 
   LegacyDataStoppedPage := CreateInputOptionPage(LegacyDirectoryPage.ID,
