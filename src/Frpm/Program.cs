@@ -30,6 +30,13 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 if (useWindowsInstallationDataDirectory)
 {
     builder.Host.UseWindowsService();
+    // Store-delivered MSIX services do not have an installer phase that writes
+    // ProgramData configuration. Keep their first launch local-only, then let
+    // an existing external configuration override this safe default.
+    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["Urls"] = "http://127.0.0.1:8180"
+    });
     builder.Configuration.AddJsonFile(
         Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
         optional: true,
