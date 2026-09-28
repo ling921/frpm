@@ -24,17 +24,17 @@ function New-FrpmLogo {
     $line = [System.Drawing.Pen]::new([System.Drawing.Color]::White, [Math]::Max(2, [int]($Size * 0.078)))
     $line.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $line.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-    $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
+    $roundedPath = [System.Drawing.Drawing2D.GraphicsPath]::new()
 
     try {
         $radius = [int]($Size * 0.22)
         $diameter = $radius * 2
-        $path.AddArc(0, 0, $diameter, $diameter, 180, 90)
-        $path.AddArc($Size - $diameter, 0, $diameter, $diameter, 270, 90)
-        $path.AddArc($Size - $diameter, $Size - $diameter, $diameter, $diameter, 0, 90)
-        $path.AddArc(0, $Size - $diameter, $diameter, $diameter, 90, 90)
-        $path.CloseFigure()
-        $graphics.FillPath($background, $path)
+        $roundedPath.AddArc(0, 0, $diameter, $diameter, 180, 90)
+        $roundedPath.AddArc($Size - $diameter, 0, $diameter, $diameter, 270, 90)
+        $roundedPath.AddArc($Size - $diameter, $Size - $diameter, $diameter, $diameter, 0, 90)
+        $roundedPath.AddArc(0, $Size - $diameter, $diameter, $diameter, 90, 90)
+        $roundedPath.CloseFigure()
+        $graphics.FillPath($background, $roundedPath)
 
         $start = [int]($Size * 0.31)
         $end = [int]($Size * 0.69)
@@ -52,7 +52,7 @@ function New-FrpmLogo {
         $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
     }
     finally {
-        $path.Dispose()
+        $roundedPath.Dispose()
         $line.Dispose()
         $white.Dispose()
         $node.Dispose()
