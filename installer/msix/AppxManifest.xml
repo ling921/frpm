@@ -37,7 +37,7 @@
           <uap5:StartupTask TaskId="FRPMTray" Enabled="true" DisplayName="FRPM" />
         </uap5:Extension>
         <desktop6:Extension Category="windows.service" Executable="server\Frpm.exe" EntryPoint="Windows.FullTrustApplication" desktop7:Scope="machine">
-          <desktop6:Service Name="FRPM" StartupType="auto" StartAccount="localSystem" />
+          <desktop6:Service Name="FRPM" StartupType="auto" StartAccount="localService" />
         </desktop6:Extension>
       </Extensions>
     </Application>
@@ -46,6 +46,5 @@
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
     <rescap:Capability Name="packagedServices" />
-    <rescap:Capability Name="localSystemServices" />
   </Capabilities>
 </Package>
