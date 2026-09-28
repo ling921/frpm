@@ -48,6 +48,8 @@ docker compose up -d
 
 Windows 用户可下载 `frpm-<版本>-win-x64-setup.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8180`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
 
+也可以从 [Microsoft Store 安装 FRPM](https://apps.microsoft.com/detail/9NQHDN7WR30L)。商店版本使用 MSIX 包，由 Microsoft Store 签名和更新；GitHub Release 同时附带 `frpm-microsoft-store.url`，双击即可打开 Store 安装页。商店应用通过认证并发布前，该链接不会显示可安装版本。
+
 安装器首次运行时只需选择管理端口。更新安装版会静默停止 FRPM 服务和托盘程序、更新程序文件并重新启动服务，同时保留现有数据和自定义配置。
 
 解压后请始终从 `FRPM` 目录启动，并将该目录及其中的 `data` 目录一并保留。升级时覆盖程序文件即可；不要删除 `data`，其中包含数据库、加密密钥、CLI 文件和运行日志。
