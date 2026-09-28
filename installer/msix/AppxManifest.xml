@@ -20,6 +20,10 @@
     <Resource Language="zh-cn" />
   </Resources>
 
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
   <Applications>
     <Application Id="FRPMTray" Executable="tray\Frpm.Tray.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
