@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:desktop7="http://schemas.microsoft.com/appx/manifest/desktop/windows10/7"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 desktop6 desktop7 rescap">
+
+  <Identity Name="1794393CD59D1.frpm" Publisher="CN=FB90D3EB-1C18-4586-90F4-7B78D9EBB1A8" Version="__PACKAGE_VERSION__" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>FRPM</DisplayName>
+    <PublisherDisplayName>秉烛夜思</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="zh-cn" />
+  </Resources>
+
+  <Applications>
+    <Application Id="FRPMTray" Executable="tray\Frpm.Tray.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="FRPM"
+        Description="FRPM 内网穿透管理"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <uap5:Extension Category="windows.startupTask" Executable="tray\Frpm.Tray.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap5:StartupTask TaskId="FRPMTray" Enabled="true" DisplayName="FRPM" />
+        </uap5:Extension>
+        <desktop6:Extension Category="windows.service" Executable="server\Frpm.exe" EntryPoint="Windows.FullTrustApplication" desktop7:Scope="machine">
+          <desktop6:Service Name="FRPM" StartupType="auto" StartAccount="localSystem" />
+        </desktop6:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="packagedServices" />
+    <rescap:Capability Name="localSystemServices" />
+  </Capabilities>
+</Package>
