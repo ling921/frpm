@@ -118,6 +118,25 @@ jobs:
           dotnet publish src/Frpm/Frpm.csproj --configuration Release --runtime win-x64 --self-contained true --property:PublishNativeRelease=true --output publish/win-x64/server
           dotnet publish src/Frpm.Tray/Frpm.Tray.csproj --configuration Release --runtime win-x64 --self-contained true --property:PublishSingleFile=true --property:IncludeNativeLibrariesForSelfExtract=true --output publish/win-x64/tray
 
+      - name: Build Microsoft Store upload package
+        shell: pwsh
+        run: |
+          $makeAppx = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter makeappx.exe -Recurse |
+            Sort-Object { [version]$_.Directory.Parent.Name } -Descending |
+            Select-Object -First 1
+          if ($null -eq $makeAppx) {
+            throw 'MakeAppx.exe was not found on the Windows runner.'
+          }
+          & installer/msix/New-FrpmMsix.ps1 -SourceDirectory publish/win-x64 -OutputDirectory publish/msix -Version ${env:RELEASE_TAG} -MakeAppxPath $makeAppx.FullName
+
+      - name: Upload Microsoft Store submission package
+        uses: actions/upload-artifact@v4
+        with:
+          name: frpm-${{ env.RELEASE_TAG }}-win-x64-msixupload
+          path: publish/msix/*.msixupload
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress --yes
@@ -138,5 +157,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
-          files: dist/frpm-*-win-x64-setup.exe
+          files: |
+            dist/frpm-*-win-x64-setup.exe
+            installer/msix/frpm-microsoft-store.url
           fail_on_unmatched_files: true
