@@ -14,6 +14,10 @@ on:
         description: Branch, tag, or commit to build when dispatching manually
         required: true
         type: string
+      msix_version:
+        description: Optional four-part MSIX package version, for example v1.0.0.1
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -25,6 +29,7 @@ concurrency:
 env:
   RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
   SOURCE_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref }}
+  MSIX_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.msix_version || inputs.tag }}
 
 jobs:
   publish:
@@ -128,7 +133,7 @@ jobs:
           if ($null -eq $makeAppx) {
             throw 'MakeAppx.exe was not found on the Windows runner.'
           }
-          & installer/msix/New-FrpmMsix.ps1 -SourceDirectory publish/win-x64 -OutputDirectory publish/msix -Version ${env:RELEASE_TAG} -MakeAppxPath $makeAppx.FullName
+          & installer/msix/New-FrpmMsix.ps1 -SourceDirectory publish/win-x64 -OutputDirectory publish/msix -Version ${env:MSIX_VERSION} -MakeAppxPath $makeAppx.FullName
 
       - name: Upload Microsoft Store submission package
         uses: actions/upload-artifact@v4
