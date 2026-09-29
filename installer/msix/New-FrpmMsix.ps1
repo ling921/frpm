@@ -12,10 +12,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ($Version -notmatch '^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$') {
-    throw "Release version '$Version' must use numeric major.minor.patch format."
+    throw "Store package version '$Version' must use numeric major.minor.patch format, optionally followed by .0."
 }
 
-$packageVersion = "$($Matches[1]).$($Matches[2]).$($Matches[3]).$($Matches[4] ?? '0')"
+$revision = $Matches[4]
+if ($revision -and $revision -ne '0') {
+    throw "Microsoft Store requires the MSIX revision to be zero; '$Version' specifies revision $revision. Use a semantic version such as 1.0.1."
+}
+
+$packageVersion = "$($Matches[1]).$($Matches[2]).$($Matches[3]).0"
 $layout = Join-Path $OutputDirectory 'layout'
 $packagePath = Join-Path $OutputDirectory "frpm-$Version-win-x64.msix"
 $uploadPath = Join-Path $OutputDirectory "frpm-$Version-win-x64.msixupload"

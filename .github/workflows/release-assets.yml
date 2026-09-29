@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       msix_version:
-        description: Optional four-part MSIX package version, for example v1.0.0.1
+        description: Optional Store package semantic version; revision is always generated as zero, for example v1.0.1
         required: false
         type: string
 
@@ -138,7 +138,7 @@ jobs:
       - name: Upload Microsoft Store submission package
         uses: actions/upload-artifact@v4
         with:
-          name: frpm-${{ env.RELEASE_TAG }}-win-x64-msixupload
+          name: frpm-${{ env.MSIX_VERSION }}-win-x64-msixupload
           path: publish/msix/*.msixupload
           if-no-files-found: error
           retention-days: 30
