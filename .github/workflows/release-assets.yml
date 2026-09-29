@@ -18,6 +18,11 @@ on:
         description: Optional Store package semantic version; revision is always generated as zero, for example v1.0.1
         required: false
         type: string
+      store_package_only:
+        description: Build only the Microsoft Store package without updating public release assets
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -34,6 +39,7 @@ env:
 jobs:
   publish:
     name: Build and upload native packages
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.store_package_only }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -144,14 +150,17 @@ jobs:
           retention-days: 30
 
       - name: Install Inno Setup
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.store_package_only }}
         shell: pwsh
         run: choco install innosetup --no-progress --yes
 
       - name: Download Simplified Chinese installer language
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.store_package_only }}
         shell: pwsh
         run: Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl' -OutFile installer/windows/ChineseSimplified.isl
 
       - name: Build installer
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.store_package_only }}
         shell: pwsh
         run: |
           $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
@@ -160,6 +169,7 @@ jobs:
           & $compiler "/DMyAppVersion=${env:RELEASE_TAG}" "/DSourceDir=$sourceDir" installer/windows/FRPM.iss
 
       - name: Upload release asset
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.store_package_only }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
