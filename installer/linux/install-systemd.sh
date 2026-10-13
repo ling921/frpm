@@ -1,74 +1,34 @@
 #!/usr/bin/env sh
 set -eu
 
-port=""
-
-usage() {
-  echo "Usage: $0 [--port PORT|-p PORT]"
-}
-
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -p|--port)
-      if [ "$#" -lt 2 ]; then
-        usage
-        exit 1
-      fi
-      port="$2"
-      shift 2
-      ;;
-    --port=*)
-      port="${1#*=}"
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      usage
-      exit 1
-      ;;
-  esac
-done
-
-if [ -n "$port" ]; then
-  case "$port" in
-    *[!0-9]*)
-      echo "Port must be an integer from 1 to 65535."
-      exit 1
-      ;;
-  esac
-  if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-    echo "Port must be an integer from 1 to 65535."
-    exit 1
-  fi
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  echo "Usage: $0"
+  echo "Install the native FRPM runtime as a systemd user service (no Web port)."
+  exit 0
 fi
-
-if [ "$(id -u)" -ne 0 ]; then
-  echo "Run this script with sudo."
+if [ "$#" -ne 0 ]; then
+  echo "The native desktop runtime has no management port. --port/-p is no longer needed."
+  exit 1
+fi
+if [ "$(id -u)" -eq 0 ]; then
+  echo "Run this script as your desktop user, without sudo."
   exit 1
 fi
 
 install_dir="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-unit_source="$install_dir/systemd/frpm.service"
-unit_target="/etc/systemd/system/frpm.service"
-
-if [ ! -x "$install_dir/Frpm" ] || [ ! -f "$unit_source" ]; then
-  echo "Run this script from an extracted FRPM release package."
+if [ ! -x "$install_dir/Frpm.Desktop" ]; then
+  echo "Run this script from an extracted FRPM desktop package."
   exit 1
 fi
-
-if [ -n "$port" ]; then
-  printf '{\n  "Urls": "http://+:%s"\n}\n' "$port" > "$install_dir/appsettings.Production.json"
-fi
-
-sed "s|__FRPM_INSTALL_DIR__|$install_dir|g" "$unit_source" > "$unit_target"
-systemctl daemon-reload
-systemctl enable frpm.service
-systemctl restart frpm.service
-
-if [ -z "$port" ]; then
-  port="8180"
-fi
-echo "FRPM is running as a systemd service. Open http://127.0.0.1:$port on this machine."
+case "$install_dir" in
+  *'"'*|*'\'*) echo "Choose an installation path without quotes or backslashes."; exit 1 ;;
+esac
+config_root="${XDG_CONFIG_HOME:-$HOME/.config}"
+unit_directory="$config_root/systemd/user"
+mkdir -p "$unit_directory"
+escaped_dir="$(printf '%s' "$install_dir" | sed 's/%/%%/g; s/[&|]/\\&/g')"
+sed "s|__FRPM_INSTALL_DIR__|$escaped_dir|g" "$install_dir/systemd/frpm.service" > "$unit_directory/frpm.service"
+systemctl --user daemon-reload
+systemctl --user enable --now frpm.service
+echo "FRPM is running without a Web server. Check: systemctl --user status frpm"
+echo "Stop this service before opening the desktop UI: systemctl --user stop frpm"

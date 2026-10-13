@@ -1,0 +1,226 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        x:Class="Frpm.Desktop.MainWindow"
+        Title="FRPM · 内网穿透管理"
+        Width="1240" Height="820" MinWidth="960" MinHeight="620"
+        CanResize="True" CanMinimize="True" CanMaximize="True" SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        FontFamily="Segoe UI Variable, Segoe UI, Microsoft YaHei UI, Inter, Noto Sans CJK SC, sans-serif"
+        WindowStartupLocation="CenterScreen"
+        Background="Transparent">
+  <Window.Styles>
+    <Style Selector="Border.section">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FrpmDividerBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="Padding" Value="0,16" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="Border.metric">
+      <Setter Property="Background" Value="{DynamicResource FrpmCardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FrpmDividerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="Margin" Value="0,0,10,0" />
+      <Setter Property="MinHeight" Value="94" />
+    </Style>
+    <Style Selector="TextBlock.metricValue">
+      <Setter Property="FontSize" Value="28" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+    <Style Selector="TextBlock.metricGood">
+      <Setter Property="Foreground" Value="#107C10" />
+    </Style>
+    <Style Selector="TextBlock.metricBad">
+      <Setter Property="Foreground" Value="#C42B1C" />
+    </Style>
+    <Style Selector="TextBlock.metricWarning">
+      <Setter Property="Foreground" Value="#8A5A00" />
+    </Style>
+    <Style Selector="Border.listRow">
+      <Setter Property="BorderBrush" Value="{DynamicResource FrpmDividerBrush}" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+      <Setter Property="Padding" Value="12,14" />
+    </Style>
+    <Style Selector="Border.listRow:pointerover">
+      <Setter Property="Background" Value="{DynamicResource FrpmSubtleFillBrush}" />
+    </Style>
+    <Style Selector="Border.statusPill">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style Selector="TextBlock.statusText">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="{DynamicResource FrpmSecondaryTextBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Button:not(:disabled)">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource FrpmPrimaryBrush}" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FrpmPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource FrpmPrimaryHoverBrush}" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Foreground" Value="#C42B1C" />
+    </Style>
+    <Style Selector="Button.captionButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinWidth" Value="46" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.captionButton:pointerover">
+      <Setter Property="Background" Value="#E5E5E5" />
+    </Style>
+    <Style Selector="Button.captionButton:pressed">
+      <Setter Property="Background" Value="#D6D6D6" />
+    </Style>
+    <Style Selector="Button.captionButton.closeButton:pointerover">
+      <Setter Property="Background" Value="#C42B1C" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.captionButton.closeButton:pressed">
+      <Setter Property="Background" Value="#A82016" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="ui|NavigationViewItem:not(:disabled)">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="CheckBox:not(:disabled)">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ComboBox:not(:disabled)">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="RepeatButton:not(:disabled)">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </Window.Styles>
+
+  <Border Background="{DynamicResource FrpmWindowBackgroundBrush}"
+          BorderBrush="{DynamicResource FrpmDividerBrush}" BorderThickness="1"
+          CornerRadius="8" ClipToBounds="True">
+    <Grid Background="Transparent" RowDefinitions="34,*" ColumnDefinitions="*">
+      <Border Grid.Row="0" Grid.Column="0" Background="{DynamicResource FrpmWindowBackgroundBrush}">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+        <Button x:Name="BackButton" Grid.Column="0" Classes="captionButton" ToolTip.Tip="返回"
+                IsEnabled="False">
+          <ui:SymbolIcon Symbol="Back" Width="16" Height="16"
+                         Foreground="{DynamicResource FrpmSecondaryTextBrush}" />
+        </Button>
+        <Button x:Name="PaneToggleButton" Grid.Column="1" Classes="captionButton" ToolTip.Tip="显示或隐藏导航栏">
+          <ui:SymbolIcon Symbol="GlobalNavigationButton" Width="16" Height="16"
+                         Foreground="{DynamicResource FrpmSecondaryTextBrush}" />
+        </Button>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="12,0,8,0"
+                    VerticalAlignment="Center" IsHitTestVisible="False">
+          <Image Source="avares://Frpm.Desktop/Assets/frpm-store-icon.png" Width="20" Height="20" />
+          <TextBlock Text="FRPM · 内网穿透管理" FontSize="13" FontWeight="SemiBold"
+                     VerticalAlignment="Center" />
+        </StackPanel>
+        <Border x:Name="TitleDragRegion" Grid.Column="3" Background="Transparent" />
+        <Button x:Name="MinimizeButton" Grid.Column="4" Classes="captionButton" ToolTip.Tip="最小化">
+          <Border Width="10" Height="1" Background="{DynamicResource FrpmSecondaryTextBrush}" />
+        </Button>
+        <Button x:Name="MaximizeButton" Grid.Column="5" Classes="captionButton" ToolTip.Tip="最大化">
+          <Grid Width="12" Height="12">
+            <Border x:Name="MaximizeGlyph" BorderBrush="{DynamicResource FrpmSecondaryTextBrush}"
+                    BorderThickness="1" />
+            <Grid x:Name="RestoreGlyph" IsVisible="False" Background="{DynamicResource FrpmWindowBackgroundBrush}">
+              <Border Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                      Margin="0,0,0,3" BorderBrush="{DynamicResource FrpmSecondaryTextBrush}"
+                      BorderThickness="1" Background="{DynamicResource FrpmWindowBackgroundBrush}" />
+              <Border Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                      Margin="0,3,0,0" BorderBrush="{DynamicResource FrpmSecondaryTextBrush}"
+                      BorderThickness="1" Background="{DynamicResource FrpmWindowBackgroundBrush}" />
+            </Grid>
+          </Grid>
+        </Button>
+        <Button x:Name="CloseButton" Grid.Column="6" Classes="captionButton closeButton" ToolTip.Tip="关闭">
+          <ui:SymbolIcon Symbol="Dismiss" Width="14" Height="14" />
+        </Button>
+        </Grid>
+      </Border>
+
+      <ui:NavigationView x:Name="Navigation" Grid.Row="1" Grid.Column="0"
+                         PaneDisplayMode="Left" OpenPaneLength="252" CompactPaneLength="48"
+                         IsPaneOpen="True" IsPaneToggleButtonVisible="False"
+                         IsBackButtonVisible="False" IsBackEnabled="False" IsSettingsVisible="False">
+        <ui:NavigationView.MenuItems>
+          <ui:NavigationViewItem x:Name="DashboardNavigationItem" Content="概览" Tag="dashboard">
+            <ui:NavigationViewItem.IconSource><ui:SymbolIconSource Symbol="Home" /></ui:NavigationViewItem.IconSource>
+          </ui:NavigationViewItem>
+          <ui:NavigationViewItem x:Name="ProvidersNavigationItem" Content="供应商账号" Tag="providers">
+            <ui:NavigationViewItem.IconSource><ui:SymbolIconSource Symbol="People" /></ui:NavigationViewItem.IconSource>
+          </ui:NavigationViewItem>
+          <ui:NavigationViewItem x:Name="TunnelsNavigationItem" Content="隧道" Tag="tunnels">
+            <ui:NavigationViewItem.IconSource><ui:SymbolIconSource Symbol="Link" /></ui:NavigationViewItem.IconSource>
+          </ui:NavigationViewItem>
+          <ui:NavigationViewItem x:Name="PackagesNavigationItem" Content="CLI 版本" Tag="packages">
+            <ui:NavigationViewItem.IconSource><ui:SymbolIconSource Symbol="Code" /></ui:NavigationViewItem.IconSource>
+          </ui:NavigationViewItem>
+          <ui:NavigationViewItem x:Name="RunsNavigationItem" Content="运行日志" Tag="runs">
+            <ui:NavigationViewItem.IconSource><ui:SymbolIconSource Symbol="Clock" /></ui:NavigationViewItem.IconSource>
+          </ui:NavigationViewItem>
+        </ui:NavigationView.MenuItems>
+        <ui:NavigationView.FooterMenuItems>
+          <ui:NavigationViewItem x:Name="SettingsNavigationItem" Content="设置" Tag="settings">
+            <ui:NavigationViewItem.IconSource><ui:SymbolIconSource Symbol="Settings" /></ui:NavigationViewItem.IconSource>
+          </ui:NavigationViewItem>
+        </ui:NavigationView.FooterMenuItems>
+        <ui:NavigationView.PaneFooter>
+          <StackPanel Margin="16,8" Spacing="8">
+            <TextBlock x:Name="TrayInfo" Text="关闭窗口后继续运行" Classes="hint" />
+          </StackPanel>
+        </ui:NavigationView.PaneFooter>
+        <ui:NavigationView.Content>
+          <Grid RowDefinitions="Auto,*,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="24,18,24,4">
+              <StackPanel Spacing="4">
+                <TextBlock x:Name="PageTitle" Text="概览" FontSize="28" FontWeight="SemiBold" />
+                <TextBlock x:Name="PageSubtitle" Classes="hint" />
+              </StackPanel>
+              <Button x:Name="RefreshButton" Grid.Column="1" Content="刷新" VerticalAlignment="Center" />
+            </Grid>
+            <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="24,10,24,12">
+              <ProgressBar x:Name="BusyBar" Grid.Row="0" IsIndeterminate="True" IsVisible="False" Height="3" />
+              <ScrollViewer Grid.Row="1" Margin="0,8,0,0" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="PageContent" Spacing="0" />
+              </ScrollViewer>
+            </Grid>
+            <Border Grid.Row="2" Background="Transparent" BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource FrpmDividerBrush}" Padding="24,8">
+              <TextBlock x:Name="StatusMessage" Text="正在初始化…" Classes="hint"
+                         VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            </Border>
+          </Grid>
+        </ui:NavigationView.Content>
+      </ui:NavigationView>
+
+      <Border x:Name="ResizeNorth" Grid.Row="0" Grid.Column="0" Height="5" VerticalAlignment="Top" Background="Transparent" />
+      <Border x:Name="ResizeSouth" Grid.Row="1" Grid.Column="0" Height="5" VerticalAlignment="Bottom" Background="Transparent" />
+      <Border x:Name="ResizeWest" Grid.Row="0" Grid.Column="0" Width="5" HorizontalAlignment="Left" Grid.RowSpan="2" Background="Transparent" />
+      <Border x:Name="ResizeEast" Grid.Row="0" Grid.Column="0" Width="5" HorizontalAlignment="Right" Grid.RowSpan="2" Background="Transparent" />
+      <Border x:Name="ResizeNorthWest" Grid.Row="0" Grid.Column="0" Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent" />
+      <Border x:Name="ResizeNorthEast" Grid.Row="0" Grid.Column="0" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent" />
+      <Border x:Name="ResizeSouthWest" Grid.Row="1" Grid.Column="0" Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent" />
+      <Border x:Name="ResizeSouthEast" Grid.Row="1" Grid.Column="0" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" />
+    </Grid>
+  </Border>
+</Window>

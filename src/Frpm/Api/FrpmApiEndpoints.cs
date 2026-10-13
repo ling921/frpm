@@ -8,14 +8,13 @@ public static class FrpmApiEndpoints
 {
     public static IEndpointRouteBuilder MapFrpmApi(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/oauth/lolia/callback", async (HttpContext context, string? code, string? state, string? error, IProviderOAuthService service, CancellationToken ct) =>
+        endpoints.MapGet("/oauth/lolia/callback", async (HttpContext context, string? code, string? state, string? error, IProviderOAuthCallback oauthService, CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(state))
                 return OAuthPopupResult(context, false, "OAuth 回调缺少 state，请重新授权。");
 
             try
             {
-                var oauthService = (ProviderOAuthService)service;
                 if (!string.IsNullOrWhiteSpace(error))
                 {
                     oauthService.CancelLolia(state);

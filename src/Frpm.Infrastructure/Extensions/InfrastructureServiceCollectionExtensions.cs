@@ -31,7 +31,6 @@ public static partial class InfrastructureServiceCollectionExtensions
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? $"Data Source={Path.Combine(storage.DataDirectory, "frpm.db")}";
         services.AddDbContextFactory<ApplicationDbContext>(options => options.UseSqlite(connectionString));
-        services.AddHttpContextAccessor();
         services.AddDataProtection().SetApplicationName("Frpm").PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(storage.DataDirectory, "keys")));
         services.AddHttpClient("frp-provider", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddHttpClient("cli-download", client => client.Timeout = TimeSpan.FromMinutes(30));

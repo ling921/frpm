@@ -1,7 +1,6 @@
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0-dev"
 #endif
-
 #ifndef SourceDir
   #define SourceDir "..\\..\\publish\\win-x64"
 #endif
@@ -26,31 +25,31 @@ WizardStyle=modern
 UninstallDisplayName=FRPM
 SetupIconFile=frpm.ico
 UninstallDisplayIcon={app}\frpm.ico
-CloseApplications=no
+CloseApplications=yes
+CloseApplicationsFilter=Frpm.Desktop.exe
 RestartApplications=no
 
 [Languages]
 Name: "chinesesimp"; MessagesFile: "ChineseSimplified.isl"
 
 [Tasks]
-Name: "starttray"; Description: "登录 Windows 后启动 FRPM 托盘图标"; Flags: checkedonce
+Name: "startdesktop"; Description: "登录 Windows 后在托盘中运行 FRPM"; Flags: checkedonce
 
 [Files]
-Source: "{#SourceDir}\server\*"; DestDir: "{app}\server"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#SourceDir}\tray\*"; DestDir: "{app}\tray"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\desktop\*"; DestDir: "{app}\desktop"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "frpm.ico"; DestDir: "{app}"; Flags: ignoreversion
 
+[Icons]
+Name: "{group}\FRPM"; Filename: "{app}\desktop\Frpm.Desktop.exe"; IconFilename: "{app}\frpm.ico"; IconIndex: 0
+
 [Registry]
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "FRPM Tray"; ValueData: """{app}\tray\Frpm.Tray.exe"""; Tasks: starttray; Flags: uninsdeletevalue
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "FRPM Tray"; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "FRPM"; ValueData: """{app}\desktop\Frpm.Desktop.exe"" --background"; Tasks: startdesktop; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\tray\Frpm.Tray.exe"; Description: "启动 FRPM 托盘图标"; Flags: nowait postinstall skipifsilent; Tasks: starttray
+Filename: "{app}\desktop\Frpm.Desktop.exe"; Description: "启动 FRPM"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [Code]
-var
-  PortPage: TInputQueryWizardPage;
-  ServiceAlreadyInstalled: Boolean;
-
 function ServiceExists(): Boolean;
 var
   ResultCode: Integer;
@@ -58,141 +57,64 @@ begin
   Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
 end;
 
-procedure StopService();
+function StopLegacyService(): String;
 var
   ResultCode: Integer;
   Attempt: Integer;
 begin
-  if ServiceExists() then
+  Result := '';
+  if not ServiceExists() then Exit;
+  Exec(ExpandConstant('{sys}\sc.exe'), 'stop FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  for Attempt := 1 to 30 do
   begin
-    Exec(ExpandConstant('{sys}\sc.exe'), 'stop FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    for Attempt := 1 to 30 do
+    if Exec(ExpandConstant('{cmd}'), '/C sc query FRPM | findstr /C:"STOPPED"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
     begin
-      if Exec(ExpandConstant('{cmd}'), '/C sc query FRPM | findstr /C:"STOPPED"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
-        Exit;
-      Sleep(1000);
+      if not Exec(ExpandConstant('{sys}\sc.exe'), 'delete FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+        Result := '无法移除旧版 FRPM 服务，请停止并移除该服务后重试。';
+      Exit;
     end;
-    RaiseException('FRPM 服务未能在 30 秒内停止。请停止该服务后重新运行安装程序。');
+    Sleep(1000);
   end;
+  Result := '旧版 FRPM 服务未能停止，请停止该服务后重新运行安装程序。';
 end;
 
-procedure InitializeWizard;
-begin
-  PortPage := CreateInputQueryPage(wpWelcome,
-    '配置管理端口',
-    '选择本机管理页面端口',
-    'FRPM 默认只监听本机回环地址。可按需修改端口，避免与本地开发服务冲突。');
-  PortPage.Add('管理端口：', False);
-  PortPage.Values[0] := '8180';
-end;
-
-function ShouldSkipPage(PageID: Integer): Boolean;
-begin
-  Result := (PageID = PortPage.ID) and FileExists(ExpandConstant('{commonappdata}\FRPM\appsettings.json')) and ServiceExists();
-end;
-
-function NextButtonClick(CurPageID: Integer): Boolean;
-begin
-  Result := True;
-  if CurPageID = PortPage.ID then
-  begin
-    if (StrToIntDef(Trim(PortPage.Values[0]), 0) < 1)
-      or (StrToIntDef(Trim(PortPage.Values[0]), 0) > 65535) then
-    begin
-      MsgBox('请输入 1 到 65535 之间的管理端口。', mbError, MB_OK);
-      Result := False;
-    end;
-  end;
-end;
-
-procedure WriteDefaultConfiguration();
-var
-  ConfigurationPath: String;
-  OverrideConfigurationPath: String;
-  Configuration: String;
-begin
-  ConfigurationPath := ExpandConstant('{commonappdata}\FRPM\appsettings.json');
-  if not FileExists(ConfigurationPath) then
-  begin
-    Configuration := '{' + #13#10 +
-      '  "Urls": "http://127.0.0.1:' + Trim(PortPage.Values[0]) + '",' + #13#10 +
-      '  "ConnectionStrings": {' + #13#10 +
-      '    "DefaultConnection": "Data Source=data/frpm.db"' + #13#10 +
-      '  },' + #13#10 +
-      '  "Frpm": {' + #13#10 +
-      '    "Storage": {' + #13#10 +
-      '      "DataDirectory": "data",' + #13#10 +
-      '      "LogRetentionDays": 30,' + #13#10 +
-      '      "MaxLogBytes": 536870912,' + #13#10 +
-      '      "MaxPackageBytes": 268435456' + #13#10 +
-      '    }' + #13#10 +
-      '  }' + #13#10 +
-      '}' + #13#10;
-    if not SaveStringToFile(ConfigurationPath, Configuration, False) then
-      RaiseException('无法创建 FRPM 配置文件。');
-    Exit;
-  end;
-
-  if not ServiceAlreadyInstalled then
-  begin
-    OverrideConfigurationPath := ExpandConstant('{commonappdata}\FRPM\appsettings.Production.json');
-    Configuration := '{' + #13#10 +
-      '  "Urls": "http://127.0.0.1:' + Trim(PortPage.Values[0]) + '"' + #13#10 +
-      '}' + #13#10;
-    if not SaveStringToFile(OverrideConfigurationPath, Configuration, False) then
-      RaiseException('无法更新 FRPM 管理端口配置。');
-  end;
-end;
-
-function ServiceParameters(): String;
-begin
-  Result := 'binPath= ' + AddQuotes(ExpandConstant('{app}\server\Frpm.exe')) + ' start= auto DisplayName= ' + AddQuotes('FRPM');
-end;
-
-procedure RegisterAndStartService();
+function StopDesktop(OriginalUser: Boolean): String;
 var
   ResultCode: Integer;
-  Command: String;
+  ExecutablePath: String;
+  Executed: Boolean;
 begin
-  if ServiceAlreadyInstalled then
-    Command := 'config FRPM ' + ServiceParameters()
-  else
-    Command := 'create FRPM ' + ServiceParameters();
-
-  if not Exec(ExpandConstant('{sys}\sc.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) or (ResultCode <> 0) then
+  Result := '';
+  ExecutablePath := ExpandConstant('{app}\desktop\Frpm.Desktop.exe');
+  if FileExists(ExecutablePath) then
   begin
-    RaiseException(Format('无法注册 FRPM Windows 服务。sc.exe 返回代码：%d。', [ResultCode]));
+    if OriginalUser then
+      Executed := ExecAsOriginalUser(ExecutablePath, '--shutdown', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
+    else
+      Executed := Exec(ExecutablePath, '--shutdown', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    if not Executed or (ResultCode <> 0) then
+      Result := 'FRPM 未能完成退出，请从托盘菜单退出 FRPM 后重试。';
   end;
-
-  Exec(ExpandConstant('{sys}\sc.exe'), 'start FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
-procedure CurStepChanged(CurStep: TSetupStep);
+function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
-  if CurStep = ssInstall then
-  begin
-    Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM Frpm.Tray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    ServiceAlreadyInstalled := ServiceExists();
-    StopService();
-  end;
-
-  if CurStep = ssPostInstall then
-  begin
-    WriteDefaultConfiguration();
-    RegisterAndStartService();
-  end;
+  Result := StopDesktop(True);
+  if Result <> '' then Exit;
+  Result := StopLegacyService();
+  if Result <> '' then Exit;
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM Frpm.Tray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+function InitializeUninstall(): Boolean;
 var
-  ResultCode: Integer;
+  ErrorMessage: String;
 begin
-  if CurUninstallStep = usUninstall then
-  begin
-    Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM Frpm.Tray.exe /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(ExpandConstant('{sys}\sc.exe'), 'stop FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(ExpandConstant('{sys}\sc.exe'), 'delete FRPM', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
+  ErrorMessage := StopDesktop(False);
+  Result := ErrorMessage = '';
+  if not Result then MsgBox(ErrorMessage, mbError, MB_OK);
 end;
+
+// Data is stored outside Program Files. Neither upgrades nor uninstall remove it.

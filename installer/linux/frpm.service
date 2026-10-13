@@ -1,15 +1,15 @@
 [Unit]
-Description=FRPM
+Description=FRPM native tunnel runtime
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=exec
-WorkingDirectory=__FRPM_INSTALL_DIR__
-ExecStart=__FRPM_INSTALL_DIR__/Frpm
+WorkingDirectory="__FRPM_INSTALL_DIR__"
+ExecStart="__FRPM_INSTALL_DIR__/Frpm.Desktop" --headless
 Restart=on-failure
 RestartSec=5
-Environment=ASPNETCORE_ENVIRONMENT=Production
+TimeoutStopSec=35
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

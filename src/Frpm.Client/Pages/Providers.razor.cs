@@ -140,9 +140,12 @@ public partial class Providers : ComponentBase, IAsyncDisposable
 
     private async Task StartOAuthAsync()
     {
-        if (string.IsNullOrWhiteSpace(_request.DisplayName) || string.IsNullOrWhiteSpace(_request.ClientId))
+        if (string.IsNullOrWhiteSpace(_request.DisplayName)
+            || (_request.Id is null && string.IsNullOrWhiteSpace(_request.ClientId)))
         {
-            Snackbar.Add("请先填写账号名称和 OAuth Client ID。", Severity.Warning);
+            Snackbar.Add(_request.Id is null
+                ? "请先填写账号名称和 OAuth Client ID。"
+                : "请先填写账号名称。", Severity.Warning);
             return;
         }
 
@@ -163,7 +166,7 @@ public partial class Providers : ComponentBase, IAsyncDisposable
                 ApiBaseUrl = string.IsNullOrWhiteSpace(_request.ApiBaseUrl)
                     ? BuiltInProviderCatalog.Get(ProviderType.LoliaFrp).DefaultApiBaseUrl
                     : _request.ApiBaseUrl,
-                ClientId = _request.ClientId,
+                ClientId = _request.ClientId ?? string.Empty,
                 ClientSecret = _request.ClientSecret,
                 CallbackUrl = new Uri(new Uri(Navigation.BaseUri), "oauth/lolia/callback").ToString(),
                 Enabled = _request.Enabled

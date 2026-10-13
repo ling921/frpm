@@ -29,11 +29,13 @@
             @if (BuiltInProviderCatalog.Get(_request.ProviderType).SupportsOAuth)
             {
                 <MudItem xs="12" md="3">
-                    <MudTextField Label="OAuth Client ID" @bind-Value="_request.ClientId" Variant="Variant.Outlined" />
+                    <MudTextField Label="OAuth Client ID" @bind-Value="_request.ClientId" Variant="Variant.Outlined"
+                                  HelperText="编辑已有账号时留空可复用已保存的 Client ID" />
                 </MudItem>
                 <MudItem xs="12" md="3">
                     <MudTextField Label="OAuth Client Secret" @bind-Value="_request.ClientSecret"
-                                  InputType="InputType.Password" Variant="Variant.Outlined" />
+                                  InputType="InputType.Password" Variant="Variant.Outlined"
+                                  HelperText="编辑已有账号时留空可复用已保存的 Secret；输入新 Client ID 时请同时填写对应 Secret" />
                 </MudItem>
                 <MudItem xs="12">
                     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Login"
@@ -87,7 +89,7 @@ else
                         <MudDivider Class="my-3" />
                         <MudText Typo="Typo.body2" Class="text-truncate">@account.ApiBaseUrl</MudText>
                         <MudText Typo="Typo.caption" Color="@(account.LastSyncSucceeded == false ? Color.Error : Color.Secondary)">
-                            @(account.LastSyncAt is null ? "尚未同步" : $"上次同步：{account.LastSyncAt:yyyy-MM-dd HH:mm:ss} · {account.LastSyncMessage}")
+                            @(account.LastSyncAt is null ? "尚未同步" : $"上次同步：{account.LastSyncAt.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {account.LastSyncMessage}")
                         </MudText>
                     </MudCardContent>
                     <MudCardActions>
