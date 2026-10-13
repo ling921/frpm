@@ -2,6 +2,7 @@ using Frpm.Api;
 using Frpm.Components;
 using Frpm.Components.Account;
 using Frpm.Generated;
+using Frpm.Application;
 using Frpm.Infrastructure.Extensions;
 using Ling.RemoteServices.AspNetCore;
 using Microsoft.EntityFrameworkCore;
@@ -30,9 +31,6 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 if (useWindowsInstallationDataDirectory)
 {
     builder.Host.UseWindowsService();
-    // Store-delivered MSIX services do not have an installer phase that writes
-    // ProgramData configuration. Keep their first launch local-only, then let
-    // an existing external configuration override this safe default.
     builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
     {
         ["Urls"] = "http://127.0.0.1:8180"
@@ -53,9 +51,12 @@ builder.Logging.AddDebug();
 
 // Add services to the container.
 builder.Services.AddMudServices();
-builder.Services.AddFrpmInfrastructure(builder.Configuration);
+builder.Services.AddFrpmApplication(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Frpm.Abstractions.Services.ICurrentUserIdentity, WebUserIdentity>();
 builder.Services.AddRemoteServices();
 builder.Services.AddHealthChecks();
+
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
@@ -92,8 +93,7 @@ var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
+    await app.Services.InitializeFrpmDatabaseAsync();
     await InitialAdminSeeder.SeedAsync(
         scope.ServiceProvider,
         scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("InitialAdminSeeder"));

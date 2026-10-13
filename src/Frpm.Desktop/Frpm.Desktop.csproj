@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <OutputType>Exe</OutputType>
+    <OutputType Condition="'$(RuntimeIdentifier)' == 'win-x64'">WinExe</OutputType>
+    <ApplicationIcon>Assets/frpm.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Frpm.Application/Frpm.Application.csproj" />
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
+    <PackageReference Include="FluentAvaloniaUI" Version="2.5.1" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <AvaloniaResource Include="Assets/**" />
+    <AvaloniaResource Include="../../assets/frpm-store-icon-71x71.png" Link="Assets/frpm-store-icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Frpm.Desktop.Tests" />
+  </ItemGroup>
+</Project>

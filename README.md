@@ -1,6 +1,6 @@
 # FRPM
 
-FRPM 是一个用于集中管理第三方 FRP 服务的 Web 控制台。你可以在一个页面中管理多个供应商账号、创建和运行隧道、切换 CLI 版本并查看运行日志。
+FRPM 用于集中管理第三方 FRP 服务。Windows、Linux 桌面版使用 Avalonia 原生界面；Docker 版提供 Blazor Web 控制台。两种界面复用公共业务逻辑，可以管理多个供应商账号、创建和运行隧道、切换 CLI 版本并查看日志。
 
 目前支持：
 
@@ -20,7 +20,7 @@ FRPM 是一个用于集中管理第三方 FRP 服务的 Web 控制台。你可�
 
 ## 致谢与版权
 
-FRPM 基于 [ASP.NET Core](https://dotnet.microsoft.com/apps/aspnet) 构建，界面采用 [MudBlazor](https://mudblazor.com/)。
+桌面界面采用 [Avalonia](https://avaloniaui.net/)，Docker Web 界面采用 [ASP.NET Core](https://dotnet.microsoft.com/apps/aspnet) 和 [MudBlazor](https://mudblazor.com/)。
 
 Copyright © 2026 FRPM Contributors。项目源码、问题反馈和发布记录均可在 [GitHub](https://github.com/ling921/frpm) 查看。
 
@@ -37,122 +37,99 @@ docker compose up -d
 
 打开 `http://localhost:8180`。
 
-## 原生部署（Windows / Linux）
+## 桌面版（Windows / Linux）
 
-不使用 Docker 时，可从 [Releases](https://github.com/ling921/frpm/releases) 下载与服务器架构匹配的自包含包。发布包无需安装 .NET Runtime：
+从 [Releases](https://github.com/ling921/frpm/releases) 下载自包含包，无需另行安装 .NET Runtime。桌面版直接管理本机隧道，不使用 Blazor、WebView 或本机管理网站，因此不需要设置管理端口，也无需登录 FRPM 管理员账号。
 
 | 系统与架构 | 文件 |
 | --- | --- |
+| Windows x64 安装版 | `frpm-<版本>-win-x64-setup.exe` |
 | Linux x64 | `frpm-<版本>-linux-x64.tar.gz` |
 | Linux ARM64 | `frpm-<版本>-linux-arm64.tar.gz` |
 
-Windows 用户可下载 `frpm-<版本>-win-x64-setup.exe`。安装器会注册 FRPM Windows 服务，服务在尚未登录桌面时也会运行；登录后托盘图标可打开本机管理页面。安装版默认只监听 `http://127.0.0.1:8180`，数据保存在 `%ProgramData%\FRPM\data`，卸载程序不会删除这些数据。
+Windows 安装器安装 Avalonia 桌面程序并提供开始菜单入口，可选择登录后在托盘中运行。升级会请求正在运行的桌面实例正常退出，再更新程序文件；旧的服务版升级时会停止并移除旧服务，旧数据仍保留。桌面版在当前用户会话中运行，用户注销后不继续运行隧道。
 
-也可以从 [Microsoft Store 安装 FRPM](https://apps.microsoft.com/detail/9NQHDN7WR30L)。商店版本使用 MSIX 包，由 Microsoft Store 签名和更新；GitHub Release 同时附带 `frpm-microsoft-store.url`，双击即可打开 Store 安装页。商店应用通过认证并发布前，该链接不会显示可安装版本。
+也可以从 [Microsoft Store 安装 FRPM](https://apps.microsoft.com/detail/9NQHDN7WR30L)。Store 包使用同一原生桌面程序，由 Microsoft Store 签名和更新；GitHub Release 附带 `frpm-microsoft-store.url` 作为商店入口。商店应用通过认证并发布前，该链接不会显示可安装版本。Store 版不注册 Windows 服务，清单仅保留原生桌面程序所需的 `runFullTrust`。
 
-安装器首次运行时只需选择管理端口。更新安装版会静默停止 FRPM 服务和托盘程序、更新程序文件并重新启动服务，同时保留现有数据和自定义配置。
+### 启动与托盘
 
-解压后请始终从 `FRPM` 目录启动，并将该目录及其中的 `data` 目录一并保留。升级时覆盖程序文件即可；不要删除 `data`，其中包含数据库、加密密钥、CLI 文件和运行日志。
-
-### 启动
-
-Windows：双击 `start.bat`，或在 PowerShell 中执行：
-
-```powershell
-cd .\FRPM
-.\Frpm.exe
-```
+Windows：从开始菜单打开 FRPM，或运行安装目录中的 `desktop/Frpm.Desktop.exe`。
 
 Linux：
 
 ```bash
 tar -xzf frpm-<版本>-linux-x64.tar.gz
 cd FRPM
-chmod +x Frpm start.sh
+chmod +x Frpm.Desktop start.sh install-desktop.sh
 ./start.sh
 ```
 
-如需在 Linux 上作为后台服务运行，在解压后的 `FRPM` 目录执行：
+将应用加入 Linux 桌面应用菜单，并可选在登录后运行：
 
 ```bash
-sudo ./systemd/install-systemd.sh
+./install-desktop.sh --autostart
 ```
 
-该命令创建并启动 `frpm.service`。可使用 `--port` 或 `-p` 指定管理端口，例如 `sudo ./systemd/install-systemd.sh --port 9000`。可使用 `systemctl status frpm` 查看状态，使用 `sudo systemctl disable --now frpm` 停止并取消开机启动。
+关闭主窗口会隐藏到系统托盘，已启动的隧道继续运行。托盘菜单提供“打开 FRPM”“启动全部隧道”“停止全部隧道”“打开日志文件夹”和“退出 FRPM”。明确退出后停止本地隧道，下次启动会恢复之前需要运行的隧道。
 
-在带图形桌面的 Linux 主机上，可执行 `./tray/Frpm.Tray` 显示托盘图标并打开管理页面。Linux 托盘依赖桌面环境的 StatusNotifierItem 或 AppIndicator 支持；服务运行不依赖托盘。
+Linux 托盘依赖 `StatusNotifierItem` / `AppIndicator`。没有托盘支持时，FRPM 会保留窗口；关闭时询问是否退出。GNOME 用户可能需要 AppIndicator 扩展，托盘检测还需要系统的 `dbus-send` 命令。已经隐藏的实例也可通过再次启动 FRPM 显示。
 
-默认通过 `appsettings.json` 中的 `Urls` 配置监听 `http://+:8180`。首次启动后访问 `http://服务器地址:8180`。
+Linux 自包含包仍需要系统提供 ICU、X11 和字体库。使用完整桌面的 Debian / Ubuntu 通常已有这些依赖；精简系统请参考 [Avalonia 的 Linux 依赖说明](https://v11.docs.avaloniaui.net/docs/deployment/debian-ubuntu/)，安装对应系统版本的 `libicu`、`libx11-6`、`libice6`、`libsm6` 和 `libfontconfig1`。
 
-### 修改配置
+### 数据目录与旧版导入
 
-虽然主程序采用单文件发布，`appsettings.json` 仍作为程序同目录的**外置配置文件**保留，可在停止 FRPM 后直接编辑。推荐在同目录新建 `appsettings.Production.json`，仅写入需要覆盖的项，升级时便不必覆盖默认配置。
+| 平台 | 默认目录 |
+| --- | --- |
+| Windows | `%LOCALAPPDATA%\FRPM\data` |
+| Linux | `$XDG_DATA_HOME/frpm/data`，未配置时为 `~/.local/share/frpm/data` |
 
-### 端口与监听地址
+数据库、加密密钥、CLI 和日志保存在数据目录中，程序升级不会覆盖它。Windows Setup 卸载保留此目录；Microsoft Store 卸载的数据处理由系统管理，卸载前请自行备份。迁移或备份时必须保留整个目录，不能只复制数据库。
 
-使用 `Urls` 配置监听地址。多个地址用英文分号 `;` 分隔，`+` 表示监听所有网络接口：
+使用 `--data-dir` 可以指定另一个数据目录。旧压缩包版或 Windows 服务版的数据需要在第一次启动桌面版之前导入：先停止旧版 FRPM，然后运行：
 
-```json
-{
-  "Urls": "http://+:8180;http://+:9000"
-}
+```powershell
+& "$env:ProgramFiles\FRPM\desktop\Frpm.Desktop.exe" --import-data "$env:ProgramData\FRPM\data"
 ```
 
-默认 `appsettings.json` 已包含相同说明的注释。无需修改启动脚本；编辑配置文件后重新启动 FRPM 即可生效。
+Linux 示例：
 
-例如，将数据保存到指定目录并将 SQLite 数据库一同迁移：
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=D:\\FRPM-Data\\frpm.db"
-  },
-  "Frpm": {
-    "Storage": {
-      "DataDirectory": "D:\\FRPM-Data"
-    }
-  }
-}
+```bash
+./Frpm.Desktop --import-data /path/to/old/FRPM/data
 ```
 
-Linux 路径示例：
+导入会复制账号、加密密钥、CLI 和日志，并修正数据库中指向旧数据目录的 CLI / 日志路径；来源数据不变。目标目录必须没有既有数据，也可以用 `--data-dir /path/to/new-data` 指定新的空目标。导入完成后正常启动桌面程序。
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=/var/lib/frpm/frpm.db"
-  },
-  "Frpm": {
-    "Storage": {
-      "DataDirectory": "/var/lib/frpm"
-    }
-  }
-}
+### Linux 无界面运行
+
+`./Frpm.Desktop --headless` 只运行公共隧道业务主机，不启动 Avalonia 窗口，也不提供 Web 管理页面。可以作为当前用户的 systemd 服务运行，无需 sudo：
+
+```bash
+./systemd/install-systemd.sh
+systemctl --user status frpm
 ```
 
-> [!IMPORTANT]
-> 数据目录内含用于保护供应商凭据的密钥。迁移、备份或升级时，数据库文件和整个数据目录必须一起保留；丢失密钥后，已保存的凭据无法恢复。
+桌面窗口和无界面服务不能同时占用同一个数据目录。打开桌面界面前先执行 `systemctl --user stop frpm`，完成操作并退出桌面程序后可再启动该服务。安装脚本不再接受 `--port/-p`，原生运行时没有管理端口。需要浏览器远程管理时，请使用 Docker 版。
 
-### 初始账号
+## Docker 初始账号
 
 ```text
 用户名：admin
 密码：Frpm@123
 ```
 
-首次登录后必须修改默认密码。初始管理员只会在全新数据库中创建一次。
-
-如果管理员无法登录且未配置邮件服务，请先停止 FRPM，再在运行 FRPM 的服务器上执行：
+首次登录后必须修改默认密码。管理员只在新数据库中创建一次。忘记密码时，先停止容器，再使用相同数据卷运行重置命令：
 
 ```bash
-./Frpm --reset-admin-password
+docker compose stop frpm
+docker compose run --rm --no-deps frpm dotnet Frpm.dll --reset-admin-password
+docker compose up -d
 ```
 
-Windows 安装版应在管理员 PowerShell 中执行 `& "$env:ProgramFiles\FRPM\server\Frpm.exe" --reset-admin-password`；Linux systemd 安装可在解压后的 FRPM 目录执行 `./Frpm --reset-admin-password`。重置命令会输出随机临时密码、使已有会话失效，并要求下次登录后修改密码。请只在受信任的本地终端执行，且不要将命令输出写入日志。
+命令输出随机临时密码，使已有会话失效，并要求下次登录后修改密码。不要将该输出公开或放入反馈日志。
 
 ## 第一次使用
 
-1. 使用初始管理员登录并修改密码。
+1. 打开桌面程序；Docker 版则先使用初始管理员登录并修改密码。
 2. 在“供应商”页面添加 SakuraFrp、LoliaFrp 或 MeFrp 账号。
 3. 在“CLI 版本”页面上传或在线安装与服务器平台匹配的 `frpc`。
    - “官方下载建议”依据运行 FRPM 和 frpc 的服务器系统、架构推荐下载项，而不是浏览器所在的设备。
@@ -240,8 +217,18 @@ host.docker.internal
 
 ```bash
 dotnet restore Frpm.slnx
-dotnet run --project src/Frpm/Frpm.csproj
+dotnet run --project src/Frpm.Desktop/Frpm.Desktop.csproj
 ```
+
+桌面开发入口是 `src/Frpm.Desktop`。如需开发 Docker Web 界面，运行 `dotnet run --project src/Frpm/Frpm.csproj`。
+
+| 项目 | 职责 |
+| --- | --- |
+| `Frpm.Application` | 公共业务入口、数据库初始化、桌面 OAuth 回调与数据导入；桌面和 Web 主机共同引用。 |
+| `Frpm.Infrastructure` | 供应商适配、加密凭据、SQLite、CLI 安装、同步和隧道进程管理。 |
+| `Frpm.Abstractions` / `Frpm.Domain` | 公共模型、接口和领域类型；不依赖界面。 |
+| `Frpm.Desktop` | Windows / Linux Avalonia 原生界面与托盘。 |
+| `Frpm` / `Frpm.Client` | Docker 使用的 ASP.NET Core / Blazor 界面。 |
 
 运行测试：
 

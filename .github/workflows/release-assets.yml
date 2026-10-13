@@ -62,38 +62,25 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Publish self-contained application
+      - name: Publish self-contained Avalonia desktop application
         run: >-
-          dotnet publish src/Frpm/Frpm.csproj
+          dotnet publish src/Frpm.Desktop/Frpm.Desktop.csproj
           --configuration Release
+          --framework net10.0
           --runtime ${{ matrix.rid }}
           --self-contained true
-          --property:PublishNativeRelease=true
           --output publish/${{ matrix.rid }}/FRPM
-
-      - name: Publish tray application
-        run: >-
-          dotnet publish src/Frpm.Tray/Frpm.Tray.csproj
-          --configuration Release
-          --runtime ${{ matrix.rid }}
-          --self-contained true
-          --property:PublishSingleFile=true
-          --property:IncludeNativeLibrariesForSelfExtract=true
-          --output publish/${{ matrix.rid }}/FRPM/tray
 
       - name: Add startup helper
         shell: bash
         run: |
-          if [[ "${{ matrix.rid }}" == win-* ]]; then
-            printf '@echo off\r\nFrpm.exe\r\n' > publish/${{ matrix.rid }}/FRPM/start.bat
-          else
-            printf '#!/usr/bin/env sh\nset -eu\nexec ./Frpm\n' > publish/${{ matrix.rid }}/FRPM/start.sh
-            chmod +x publish/${{ matrix.rid }}/FRPM/start.sh
-            mkdir -p publish/${{ matrix.rid }}/FRPM/systemd
-            cp installer/linux/frpm.service publish/${{ matrix.rid }}/FRPM/systemd/frpm.service
-            cp installer/linux/install-systemd.sh publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh
-            chmod +x publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh
-          fi
+          printf '#!/usr/bin/env sh\nset -eu\ncd -- "$(dirname -- "$0")"\nexec ./Frpm.Desktop "$@"\n' > publish/${{ matrix.rid }}/FRPM/start.sh
+          chmod +x publish/${{ matrix.rid }}/FRPM/Frpm.Desktop publish/${{ matrix.rid }}/FRPM/start.sh
+          mkdir -p publish/${{ matrix.rid }}/FRPM/systemd
+          cp installer/linux/frpm.service publish/${{ matrix.rid }}/FRPM/systemd/frpm.service
+          cp installer/linux/install-systemd.sh publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh
+          cp installer/linux/install-desktop.sh publish/${{ matrix.rid }}/FRPM/install-desktop.sh
+          chmod +x publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh publish/${{ matrix.rid }}/FRPM/install-desktop.sh
 
       - name: Package release asset
         shell: bash
@@ -123,11 +110,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Publish FRPM service and tray application
+      - name: Generate multi-size Windows app icon
+        shell: pwsh
+        run: '& installer/windows/New-FrpmIcon.ps1 -OutputPath src/Frpm.Desktop/Assets/frpm.ico'
+
+      - name: Publish Avalonia desktop application
         shell: pwsh
         run: |
-          dotnet publish src/Frpm/Frpm.csproj --configuration Release --runtime win-x64 --self-contained true --property:PublishNativeRelease=true --output publish/win-x64/server
-          dotnet publish src/Frpm.Tray/Frpm.Tray.csproj --configuration Release --runtime win-x64 --self-contained true --property:PublishSingleFile=true --property:IncludeNativeLibrariesForSelfExtract=true --output publish/win-x64/tray
+          dotnet publish src/Frpm.Desktop/Frpm.Desktop.csproj --configuration Release --framework net10.0-windows10.0.19041.0 --runtime win-x64 --self-contained true --output publish/win-x64/desktop
 
       - name: Build Microsoft Store upload package
         shell: pwsh

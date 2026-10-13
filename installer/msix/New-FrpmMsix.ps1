@@ -21,14 +21,23 @@ if ($revision -and $revision -ne '0') {
 }
 
 $packageVersion = "$($Matches[1]).$($Matches[2]).$($Matches[3]).0"
-$layout = Join-Path $OutputDirectory 'layout'
+$OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
+$layout = [System.IO.Path]::GetFullPath((Join-Path $OutputDirectory 'layout'))
+if ([System.IO.Path]::GetDirectoryName($layout) -ne $OutputDirectory.TrimEnd('\', '/')) {
+    throw 'MSIX layout must be a direct child of the output directory.'
+}
+if (-not (Test-Path -LiteralPath (Join-Path $SourceDirectory 'desktop\Frpm.Desktop.dll'))) {
+    throw 'Publish the desktop as a self-contained directory, without PublishSingleFile, before packaging.'
+}
 $packagePath = Join-Path $OutputDirectory "frpm-$Version-win-x64.msix"
 $uploadPath = Join-Path $OutputDirectory "frpm-$Version-win-x64.msixupload"
 
 Remove-Item -LiteralPath $layout -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $layout | Out-Null
-Copy-Item -LiteralPath (Join-Path $SourceDirectory 'server') -Destination (Join-Path $layout 'server') -Recurse -Force
-Copy-Item -LiteralPath (Join-Path $SourceDirectory 'tray') -Destination (Join-Path $layout 'tray') -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $SourceDirectory 'desktop') -Destination (Join-Path $layout 'desktop') -Recurse -Force
+# Rename the small apphost; both launchers share Frpm.Desktop.dll
+# and the self-contained runtime in this directory. Single-file publishing is not used.
+Copy-Item -LiteralPath (Join-Path $layout 'desktop\Frpm.Desktop.exe') -Destination (Join-Path $layout 'desktop\Frpm.Startup.exe') -Force
 
 $manifest = Get-Content -Raw (Join-Path $PSScriptRoot 'AppxManifest.xml')
 $manifest.Replace('__PACKAGE_VERSION__', $packageVersion) | Set-Content -LiteralPath (Join-Path $layout 'AppxManifest.xml') -Encoding utf8NoBOM

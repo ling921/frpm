@@ -1,10 +1,7 @@
 using Frpm.Abstractions.Models;
 using Frpm.Abstractions.Services;
 using Frpm.Data;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using System.Text.RegularExpressions;
 
 namespace Frpm.Infrastructure.Services;
@@ -12,8 +9,7 @@ namespace Frpm.Infrastructure.Services;
 [ScopedService(typeof(IUserPreferencesService))]
 public sealed partial class UserPreferencesService(
     IDbContextFactory<ApplicationDbContext> dbContextFactory,
-    IHttpContextAccessor httpContextAccessor,
-    AuthenticationStateProvider authenticationStateProvider) : IUserPreferencesService
+    ICurrentUserIdentity currentUser) : IUserPreferencesService
 {
     public async Task<UserPreferencesModel> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -49,10 +45,7 @@ public sealed partial class UserPreferencesService(
         ApplicationDbContext db,
         CancellationToken cancellationToken)
     {
-        var principal = httpContextAccessor.HttpContext?.User;
-        if (principal?.Identity?.IsAuthenticated is not true)
-            principal = (await authenticationStateProvider.GetAuthenticationStateAsync()).User;
-        var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)
+        var userId = await currentUser.GetUserIdAsync(cancellationToken)
             ?? throw new UnauthorizedAccessException("用户尚未登录。");
         return await db.Users.SingleOrDefaultAsync(user => user.Id == userId, cancellationToken)
             ?? throw new UnauthorizedAccessException("当前用户不存在。");

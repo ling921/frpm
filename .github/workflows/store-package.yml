@@ -1,0 +1,92 @@
+name: Build Microsoft Store Package
+run-name: Store ${{ inputs.version }} from ${{ inputs.source_ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Store package version (for example 0.1.2; revision is always zero)
+        required: true
+        default: '0.1.2'
+        type: string
+      source_ref:
+        description: Branch, tag or commit containing the desktop application
+        required: true
+        default: codex/windows-installer
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Test and package Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      STORE_VERSION_INPUT: ${{ inputs.version }}
+    steps:
+      - name: Validate version
+        shell: pwsh
+        run: |
+          if ($env:STORE_VERSION_INPUT -notmatch '^v?(\d+)\.(\d+)\.(\d+)(?:\.0)?$') {
+            throw 'Use major.minor.patch, optionally prefixed with v or followed by .0.'
+          }
+          $parts = @($Matches[1], $Matches[2], $Matches[3])
+          foreach ($part in $parts) {
+            if ([long]$part -gt 65535) { throw 'Each version component must be at most 65535.' }
+          }
+          $version = ($parts | ForEach-Object { [int]$_ }) -join '.'
+          "STORE_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Checkout selected source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Run tests
+        shell: pwsh
+        run: dotnet test Frpm.slnx --configuration Release --verbosity minimal
+
+      - name: Generate Windows icon
+        shell: pwsh
+        run: '& installer/windows/New-FrpmIcon.ps1 -OutputPath src/Frpm.Desktop/Assets/frpm.ico'
+
+      - name: Publish desktop application
+        shell: pwsh
+        run: dotnet publish src/Frpm.Desktop/Frpm.Desktop.csproj --configuration Release --framework net10.0-windows10.0.19041.0 --runtime win-x64 --self-contained true -p:Version=$env:STORE_VERSION --output publish/win-x64/desktop
+
+      - name: Build Store upload package
+        shell: pwsh
+        run: |
+          $makeAppx = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter makeappx.exe -Recurse |
+            Where-Object { $_.Directory.Name -eq 'x64' } |
+            Sort-Object { [version]$_.Directory.Parent.Name } -Descending |
+            Select-Object -First 1
+          if ($null -eq $makeAppx) { throw 'MakeAppx.exe was not found.' }
+          & installer/msix/New-FrpmMsix.ps1 -SourceDirectory publish/win-x64 -OutputDirectory publish/msix -Version $env:STORE_VERSION -MakeAppxPath $makeAppx.FullName
+
+      - name: Upload Store submission package
+        uses: actions/upload-artifact@v4
+        with:
+          name: frpm-${{ env.STORE_VERSION }}-win-x64-msixupload
+          path: publish/msix/*.msixupload
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Record build details
+        shell: pwsh
+        run: |
+          $commit = git rev-parse HEAD
+          @"
+          ## Microsoft Store package
+          - Package version: $env:STORE_VERSION.0
+          - Source commit: $commit
+          - Download the msixupload artifact from this run and upload it to Partner Center.
+          - No Git tag or GitHub Release is created by this workflow.
+          "@ >> $env:GITHUB_STEP_SUMMARY

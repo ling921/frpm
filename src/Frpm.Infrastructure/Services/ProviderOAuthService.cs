@@ -1,8 +1,11 @@
 using Frpm.Abstractions.Models;
 using Frpm.Abstractions.Services;
+using Frpm.Data;
 using Frpm.Domain.Enums;
+using Frpm.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,12 +17,38 @@ namespace Frpm.Infrastructure.Services;
 public sealed class ProviderOAuthService(
     IHttpClientFactory httpClientFactory,
     IServiceScopeFactory scopeFactory,
-    IConfiguration configuration) : IProviderOAuthService
+    IConfiguration configuration,
+    IDbContextFactory<ApplicationDbContext> dbContextFactory,
+    CredentialProtector credentialProtector) : IProviderOAuthService, IProviderOAuthCallback
 {
     private readonly ConcurrentDictionary<string, PendingAuthorization> _pending = new();
 
-    public Task<OAuthStartModel> StartLoliaAsync(StartLoliaOAuthRequest request, CancellationToken cancellationToken = default)
+    public async Task<OAuthStartModel> StartLoliaAsync(StartLoliaOAuthRequest request, CancellationToken cancellationToken = default)
     {
+        if (request.AccountId is { } accountId)
+        {
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var account = await db.ProviderAccounts.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == accountId, cancellationToken)
+                ?? throw new KeyNotFoundException("供应商账号不存在。");
+            if (account.ProviderType != ProviderType.LoliaFrp)
+            {
+                throw new InvalidOperationException("只有 LoliaFrp 账号可以使用此 OAuth 授权流程。");
+            }
+
+            var savedCredentials = credentialProtector.Unprotect(account.ProtectedCredentials);
+            if (string.IsNullOrWhiteSpace(request.ClientId))
+            {
+                request.ClientId = savedCredentials.ClientId ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ClientSecret)
+                && string.Equals(request.ClientId, savedCredentials.ClientId, StringComparison.Ordinal))
+            {
+                request.ClientSecret = savedCredentials.ClientSecret;
+            }
+        }
+
         if (string.IsNullOrWhiteSpace(request.DisplayName) || string.IsNullOrWhiteSpace(request.ClientId))
         {
             throw new InvalidOperationException("OAuth 账号名称和 Client ID 不能为空。");
@@ -47,7 +76,7 @@ public sealed class ProviderOAuthService(
             $"code_challenge={Uri.EscapeDataString(challenge)}",
             "code_challenge_method=S256",
             "access_type=offline");
-        return Task.FromResult(new OAuthStartModel($"{authorizeUrl}?{query}"));
+        return new OAuthStartModel($"{authorizeUrl}?{query}");
     }
 
     public async Task CompleteLoliaAsync(string code, string state, CancellationToken cancellationToken)
