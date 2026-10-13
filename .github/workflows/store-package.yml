@@ -14,6 +14,11 @@ on:
         required: true
         default: codex/windows-installer
         type: string
+      submit_to_store:
+        description: Upload the package and commit the submission to Microsoft Store certification
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -90,3 +95,56 @@ jobs:
           - Download the msixupload artifact from this run and upload it to Partner Center.
           - No Git tag or GitHub Release is created by this workflow.
           "@ >> $env:GITHUB_STEP_SUMMARY
+
+  submit:
+    name: Upload and submit to Microsoft Store
+    needs: package
+    if: ${{ inputs.submit_to_store }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # Credentials are isolated from the selected source code and its build scripts.
+    concurrency:
+      group: microsoft-store-submission-9NQHDN7WR30L
+      cancel-in-progress: false
+    steps:
+      - name: Check Store credentials
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+        run: |
+          foreach ($name in @('TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET', 'SELLER_ID')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing Store credential: $name. Configure the repository Actions secrets."
+            }
+          }
+
+      - name: Download package from this build
+        uses: actions/download-artifact@v4
+        with:
+          pattern: frpm-*-win-x64-msixupload
+          path: store-package
+          merge-multiple: true
+
+      - name: Set up Microsoft Store CLI
+        uses: microsoft/microsoft-store-apppublisher@v1.4
+
+      - name: Authenticate with Partner Center
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+        run: msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
+
+      - name: Upload package and commit submission
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem -LiteralPath store-package -Filter '*.msixupload' -File)
+          if ($packages.Count -ne 1) { throw 'Expected exactly one Store upload package.' }
+          msstore publish $packages[0].FullName -id 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw "Store submission failed (exit $LASTEXITCODE)." }
+          'Package uploaded and submission committed to Microsoft Store. Certification and availability are managed by Microsoft; check Partner Center for final status.' >> $env:GITHUB_STEP_SUMMARY
