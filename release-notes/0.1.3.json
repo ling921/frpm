@@ -1,0 +1,4 @@
+{
+  "zh-cn": "新增：窗口标题显示当前版本号。\n改进：统一图标绘制，改善托盘图标的对称性和不同 DPI 下的清晰度。\n修复：补齐商店图标尺寸资源，去除任务栏图标底板并改善开始菜单图标清晰度。\n改进：从本地安装 CLI 时先打开安装弹窗，再在弹窗内选择或重新选择文件。",
+  "en-us": "Added the current version to the window title.\nImproved tray icon symmetry and clarity at different display scales.\nAdded Store icon size variants to remove the taskbar backplate and improve Start menu clarity.\nLocal CLI installation now opens the installation dialog first, with file selection and reselection inside the dialog."
+}

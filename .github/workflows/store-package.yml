@@ -7,13 +7,18 @@ on:
       version:
         description: Store package version (for example 0.1.2; revision is always zero)
         required: true
-        default: '0.1.2'
+        default: '0.1.3'
         type: string
       source_ref:
         description: Branch, tag or commit containing the desktop application
         required: true
         default: codex/windows-installer
         type: string
+      submit_to_store:
+        description: Upload the package and commit the submission to Microsoft Store certification
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -49,6 +54,20 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate release notes
+        shell: pwsh
+        run: |
+          $path = "release-notes/$env:STORE_VERSION.json"
+          $notes = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+          if (!$notes.ContainsKey('en-us')) { throw 'Release notes require an en-us fallback.' }
+          foreach ($text in $notes.Values) {
+            if ($text -isnot [string] -or [string]::IsNullOrWhiteSpace($text) -or $text.Length -gt 1500) {
+              throw 'Each release note must contain 1-1500 characters.'
+            }
+          }
+          New-Item -ItemType Directory -Force publish/msix | Out-Null
+          Copy-Item -LiteralPath $path -Destination publish/msix/release-notes.json
+
       - name: Run tests
         shell: pwsh
         run: dotnet test Frpm.slnx --configuration Release --verbosity minimal
@@ -75,7 +94,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frpm-${{ env.STORE_VERSION }}-win-x64-msixupload
-          path: publish/msix/*.msixupload
+          path: |
+            publish/msix/*.msixupload
+            publish/msix/release-notes.json
           if-no-files-found: error
           retention-days: 30
 
@@ -90,3 +111,71 @@ jobs:
           - Download the msixupload artifact from this run and upload it to Partner Center.
           - No Git tag or GitHub Release is created by this workflow.
           "@ >> $env:GITHUB_STEP_SUMMARY
+
+  submit:
+    name: Upload and submit to Microsoft Store
+    needs: package
+    if: ${{ inputs.submit_to_store }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # Credentials are isolated from the selected source code and its build scripts.
+    concurrency:
+      group: microsoft-store-submission-9NQHDN7WR30L
+      cancel-in-progress: false
+    steps:
+      - name: Check Store credentials
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+        run: |
+          foreach ($name in @('TENANT_ID', 'CLIENT_ID', 'CLIENT_SECRET', 'SELLER_ID')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing Store credential: $name. Configure the repository Actions secrets."
+            }
+          }
+
+      - name: Download package from this build
+        uses: actions/download-artifact@v4
+        with:
+          pattern: frpm-*-win-x64-msixupload
+          path: store-package
+          merge-multiple: true
+
+      - name: Set up Microsoft Store CLI
+        uses: microsoft/microsoft-store-apppublisher@v1.4
+
+      - name: Authenticate with Partner Center
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+        run: msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
+
+      - name: Upload package and commit submission
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem -LiteralPath store-package -Filter '*.msixupload' -File)
+          if ($packages.Count -ne 1) { throw 'Expected exactly one Store upload package.' }
+          msstore publish $packages[0].FullName -id 9NQHDN7WR30L --noCommit
+          if ($LASTEXITCODE -ne 0) { throw "Store submission failed (exit $LASTEXITCODE)." }
+          $notes = Get-Content -LiteralPath store-package/release-notes.json -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+          $raw = msstore submission get 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read Store submission.' }
+          $submission = ($raw -join "`n") | ConvertFrom-Json -AsHashtable
+          if (!$submission.Listings -or $submission.Listings.Count -eq 0) { throw 'No Store listings found.' }
+          foreach ($language in $submission.Listings.Keys) {
+            $text = if ($notes.ContainsKey($language)) { $notes[$language] } else { $notes['en-us'] }
+            if ([string]::IsNullOrWhiteSpace($text) -or $text.Length -gt 1500) { throw "Invalid notes for $language." }
+            $submission.Listings[$language].BaseListing.ReleaseNotes = $text
+            Write-Output "Updated release notes: $language"
+          }
+          msstore submission update 9NQHDN7WR30L ($submission | ConvertTo-Json -Depth 100 -Compress)
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot update Store release notes.' }
+          msstore submission publish 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot commit Store submission.' }
+          'Package uploaded and submission committed to Microsoft Store. Certification and availability are managed by Microsoft; check Partner Center for final status.' >> $env:GITHUB_STEP_SUMMARY

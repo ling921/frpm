@@ -36,6 +36,8 @@ internal sealed partial class MainWindow : Window
         _exit = exit;
         _dataDirectory = dataDirectory;
         InitializeComponent();
+        var version = typeof(MainWindow).Assembly.GetName().Version;
+        Title = $"FRPM {version?.ToString(3) ?? "未知版本"} · 内网穿透管理";
         Icon = DesktopShell.Icon();
         BackButton.Click += (_, _) => NavigateBack();
         PaneToggleButton.Click += (_, _) => Navigation.IsPaneOpen = !Navigation.IsPaneOpen;
