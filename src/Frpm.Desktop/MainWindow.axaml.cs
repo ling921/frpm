@@ -22,6 +22,8 @@ internal sealed partial class MainWindow : Window
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(5) };
     private bool _ready;
     private bool _busy;
+    private long _statusRevision;
+    private string _runFilter = string.Empty;
     private string _page = "dashboard";
     private string? _backTarget;
     private readonly Stack<string> _navigationHistory = new();
@@ -50,7 +52,9 @@ internal sealed partial class MainWindow : Window
         CloseButton.Click += (_, _) => Close();
         TitleDragRegion.PointerPressed += (_, args) =>
         {
-            if (args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) BeginMoveDrag(args);
+            if (!args.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            if (args.ClickCount == 2) ToggleMaximized();
+            else BeginMoveDrag(args);
         };
         PropertyChanged += (_, args) =>
         {
@@ -88,7 +92,8 @@ internal sealed partial class MainWindow : Window
         RefreshButton.Click += async (_, _) => await RunActionAsync(() => RenderPageAsync(), "已刷新");
         _refreshTimer.Tick += async (_, _) =>
         {
-            if (_busy || !_ready || _page is not ("dashboard" or "tunnels" or "runs") || PageContent.IsKeyboardFocusWithin) return;
+            if (_busy || !_ready || !IsVisible || OwnedWindows.Any(w => w.IsVisible)
+                || _page is not ("dashboard" or "tunnels" or "runs") || PageContent.IsKeyboardFocusWithin) return;
             await RunActionAsync(() => RenderPageAsync(), "");
         };
     }
@@ -125,10 +130,11 @@ internal sealed partial class MainWindow : Window
         BusyBar.IsVisible = true;
         Navigation.IsEnabled = false;
         RefreshButton.IsEnabled = false;
+        var statusBefore = _statusRevision;
         try
         {
             await action();
-            if (!string.IsNullOrWhiteSpace(successMessage)) ShowStatus(successMessage, InfoBarSeverity.Success);
+            if (_statusRevision == statusBefore && !string.IsNullOrWhiteSpace(successMessage)) ShowStatus(successMessage, InfoBarSeverity.Success);
         }
         catch (OperationCanceledException)
         {
@@ -164,11 +170,10 @@ internal sealed partial class MainWindow : Window
         PageContent.Children.Clear();
     }
 
-    private Button ActionButton(string title, Func<Task> action, bool primary = false, bool danger = false)
+    private Button ActionButton(string title, Func<Task> action, bool primary = false)
     {
         var button = new Button { Content = title, Margin = new Thickness(0, 0, 8, 4) };
-        if (primary) button.Classes.Add("primary");
-        if (danger) button.Classes.Add("danger");
+        if (primary) button.Classes.Add("accent");
         button.Click += async (_, _) => await RunActionAsync(async () =>
         {
             await action();
@@ -210,7 +215,7 @@ internal sealed partial class MainWindow : Window
     private Button NavigationButton(string title, string page, bool primary = false)
     {
         var button = new Button { Content = title, Margin = new Thickness(0, 0, 8, 4) };
-        if (primary) button.Classes.Add("primary");
+        if (primary) button.Classes.Add("accent");
         button.Click += (_, _) => Navigation.SelectedItem = NavigationItem(page);
         return button;
     }
@@ -223,6 +228,7 @@ internal sealed partial class MainWindow : Window
 
     private void ShowStatus(string message, InfoBarSeverity severity = InfoBarSeverity.Informational)
     {
+        _statusRevision++;
         StatusMessage.Text = message;
         StatusMessage.Foreground = new SolidColorBrush(Color.Parse(severity switch
         {
@@ -232,6 +238,15 @@ internal sealed partial class MainWindow : Window
             _ => "#5D5D5D"
         }));
         StatusMessage.IsVisible = !string.IsNullOrWhiteSpace(message);
+    }
+
+    private void ShowLogWindow(TunnelRunModel run)
+    {
+        var window = OwnedWindows.OfType<LogWindow>().FirstOrDefault(w => w.RunId == run.Id);
+        if (window is null) { new LogWindow(_workspace, run).Show(this); return; }
+        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+        window.Show();
+        window.Activate();
     }
 
     private void NavigateBack()
@@ -344,7 +359,7 @@ internal sealed partial class MainWindow : Window
             {
                 if (await ConfirmAsync("停止全部隧道", "将中断所有正在运行的本地隧道，是否继续？"))
                     await _workspace.SetAllTunnelsRunningAsync(false, _lifetime.Token);
-            }, danger: true));
+            }));
         PageContent.Children.Add(Section(Stack(Text("下一步", size: 19), Text(nextStep), Actions(actions.ToArray()),
             Text($"本机数据目录：{_dataDirectory}", hint: true))));
     }

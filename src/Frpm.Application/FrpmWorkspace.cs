@@ -36,6 +36,12 @@ public sealed class FrpmWorkspace(IServiceScopeFactory scopes)
     public Task<LocalEndpointTestResult> TestEndpointAsync(LocalEndpointTestRequest request, CancellationToken ct = default) => UseAsync<ITunnelService, LocalEndpointTestResult>(s => s.TestLocalEndpointAsync(request, ct));
     public Task<IReadOnlyList<TunnelRunModel>> GetRunsAsync(Guid? tunnelId = null, CancellationToken ct = default) => UseAsync<ITunnelService, IReadOnlyList<TunnelRunModel>>(s => s.GetRunsAsync(tunnelId, ct));
     public Task<LogTailModel> TailLogAsync(Guid id, long cursor = 0, CancellationToken ct = default) => UseAsync<ILogService, LogTailModel>(s => s.TailAsync(id, cursor, 300, ct));
+    public Task ExportLogAsync(Guid id, Stream destination, CancellationToken ct = default) =>
+        UseAsync<Frpm.Infrastructure.Services.LogFileExportService>(s => s.CopyAsync(id, destination, ct));
+    public Task ValidateLogExportDestinationAsync(string? path) =>
+        UseAsync<Frpm.Infrastructure.Services.LogFileExportService>(s => { s.ValidateDestination(path); return Task.CompletedTask; });
+    public Task<(int Deleted, int Skipped)> CleanupLogsAsync(IReadOnlyCollection<Guid> excluded, CancellationToken ct = default) =>
+        UseAsync<Frpm.Infrastructure.Services.LogCleanupService, (int Deleted, int Skipped)>(s => s.CleanupAsync(excluded, ct));
     public Task<IReadOnlyList<CliPackageModel>> GetPackagesAsync(CancellationToken ct = default) => UseAsync<ICliPackageService, IReadOnlyList<CliPackageModel>>(s => s.GetListAsync(ct));
     public Task<CliPackageModel> InstallCliAsync(InstallCliFromUrlRequest request, CancellationToken ct = default) => UseAsync<ICliPackageService, CliPackageModel>(s => s.InstallFromUrlAsync(request, ct));
     public Task<CliPackageModel> InstallCliFileAsync(ProviderType provider, string version, string fileName, Stream content, long length,

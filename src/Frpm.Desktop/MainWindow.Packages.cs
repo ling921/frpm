@@ -74,7 +74,7 @@ internal sealed partial class MainWindow
                 {
                     if (await ConfirmAsync("删除 CLI 版本", $"删除 {package.ProviderType} {package.Version}？既有运行历史会保留。"))
                         await _workspace.DeleteCliAsync(package.Id, _lifetime.Token);
-                }, danger: true));
+                }));
             }
             details.Children.Add(Actions(actions.ToArray()));
             var row = new Border { Child = details };

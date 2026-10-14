@@ -55,8 +55,7 @@ internal sealed class DesktopApplication : Avalonia.Application
             ["FrpmDividerBrush"] = new SolidColorBrush(Color.Parse(divider)),
             ["FrpmCardBrush"] = new SolidColorBrush(Color.Parse(light ? "#FFFFFF" : "#2A2A2A")),
             ["FrpmSubtleFillBrush"] = new SolidColorBrush(Color.Parse(light ? "#F2F2F2" : "#333333")),
-            ["FrpmSecondaryTextBrush"] = new SolidColorBrush(Color.Parse(secondaryText)),
-            ["FrpmPrimaryHoverBrush"] = new SolidColorBrush(Color.Parse(light ? "#4458E8" : "#7588F3"))
+            ["FrpmSecondaryTextBrush"] = new SolidColorBrush(Color.Parse(secondaryText))
         };
     }
 

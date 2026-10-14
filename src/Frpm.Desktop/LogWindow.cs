@@ -1,4 +1,3 @@
-using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -13,6 +12,7 @@ namespace Frpm.Desktop;
 
 internal sealed class LogWindow : Window
 {
+    internal Guid RunId => _run.Id;
     private readonly CancellationTokenSource _stop = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly TextBox _output = new() { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap,
@@ -37,17 +37,19 @@ internal sealed class LogWindow : Window
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         var copy = new Button { Content = "复制日志", Cursor = new Cursor(StandardCursorType.Hand) };
         copy.Click += async (_, _) => await ExportAsync(async () => { if (Clipboard is not null) await Clipboard.SetTextAsync(_output.Text ?? ""); });
-        var save = new Button { Content = "导出日志", Margin = new Thickness(8, 0, 0, 0), Cursor = new Cursor(StandardCursorType.Hand) };
+        var save = new Button { Content = "导出完整日志", Margin = new Thickness(8, 0, 0, 0), Cursor = new Cursor(StandardCursorType.Hand) };
         save.Click += async (_, _) => await ExportAsync(async () =>
         {
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "导出当前日志", SuggestedFileName = $"frpm-{run.Id:N}.log", DefaultExtension = "log"
+                Title = "导出完整日志", SuggestedFileName = $"frpm-{run.Id:N}.log", DefaultExtension = "log"
             });
             if (file is null) return;
+            await _workspace.ValidateLogExportDestinationAsync(file.TryGetLocalPath());
             await using var stream = await file.OpenWriteAsync();
-            var bytes = Encoding.UTF8.GetBytes(_output.Text ?? "");
-            await stream.WriteAsync(bytes, _stop.Token);
+            if (stream.CanSeek) { stream.SetLength(0); stream.Position = 0; }
+            await _workspace.ExportLogAsync(run.Id, stream, _stop.Token);
+            _status.Text = "完整日志已导出。";
         });
         var follow = new CheckBox { Content = "跟随日志", IsChecked = true, Margin = new Thickness(16, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center, Cursor = new Cursor(StandardCursorType.Hand) };
@@ -88,7 +90,7 @@ internal sealed class LogWindow : Window
                 _output.Text = string.Join(Environment.NewLine, _lines);
                 if (follow) _output.CaretIndex = _output.Text.Length;
             }
-            _status.Text = $"显示最近 {_lines.Count} 行。复制与导出包含当前窗口中的日志。";
+            _status.Text = $"显示最近 {_lines.Count} 行；复制包含当前显示内容，导出包含完整日志文件。";
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { _status.Text = $"读取日志失败：{ex.Message}"; }

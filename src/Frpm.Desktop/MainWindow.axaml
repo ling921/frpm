@@ -65,17 +65,6 @@
     <Style Selector="Button:not(:disabled)">
       <Setter Property="Cursor" Value="Hand" />
     </Style>
-    <Style Selector="Button.primary">
-      <Setter Property="Background" Value="{DynamicResource FrpmPrimaryBrush}" />
-      <Setter Property="Foreground" Value="White" />
-      <Setter Property="BorderBrush" Value="{DynamicResource FrpmPrimaryBrush}" />
-    </Style>
-    <Style Selector="Button.primary:pointerover">
-      <Setter Property="Background" Value="{DynamicResource FrpmPrimaryHoverBrush}" />
-    </Style>
-    <Style Selector="Button.danger">
-      <Setter Property="Foreground" Value="#C42B1C" />
-    </Style>
     <Style Selector="Button.captionButton">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />

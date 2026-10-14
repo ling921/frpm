@@ -62,7 +62,7 @@ internal sealed partial class MainWindow
             {
                 if (await ConfirmAsync("删除账号", $"删除“{account.DisplayName}”以及本机的关联隧道记录？"))
                     await _workspace.DeleteAccountAsync(account.Id, _lifetime.Token);
-            }, danger: true));
+            }));
             content.Children.Add(Actions(actions.ToArray()));
             var row = new Border { Child = content };
             row.Classes.Add("listRow");
