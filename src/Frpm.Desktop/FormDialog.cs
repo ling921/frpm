@@ -25,30 +25,15 @@ internal sealed class FormDialog : Window
         Icon = DesktopShell.Icon();
         _body = body;
         _error = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.IndianRed, Margin = new Thickness(0, 8) };
-        var accent = DesktopApplication.AccentColor;
-        var accentBrush = new SolidColorBrush(accent);
-        var hoverBrush = new SolidColorBrush(Darken(accent, 0.86));
         _submit = new Button
         {
             Content = submitLabel,
             Margin = new Thickness(8, 0, 0, 0),
-            Cursor = new Cursor(StandardCursorType.Hand),
-            Background = accentBrush,
-            BorderBrush = accentBrush,
-            Foreground = Brushes.White
+            Cursor = new Cursor(StandardCursorType.Hand)
         };
-        _submit.PointerEntered += (_, _) =>
-        {
-            _submit.Background = hoverBrush;
-            _submit.BorderBrush = hoverBrush;
-        };
-        _submit.PointerExited += (_, _) =>
-        {
-            _submit.Background = accentBrush;
-            _submit.BorderBrush = accentBrush;
-        };
+        _submit.Classes.Add("accent");
         _submit.Click += async (_, _) => await ExecuteAsync(submit);
-        var cancel = new Button { Content = "取消", Cursor = new Cursor(StandardCursorType.Hand) };
+        var cancel = new Button { Content = "取消", Cursor = new Cursor(StandardCursorType.Hand), IsCancel = true };
         cancel.Click += (_, _) => Close(false);
         _buttons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
         _buttons.Children.Add(cancel);
@@ -91,6 +76,4 @@ internal sealed class FormDialog : Window
         Children = { new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap }, input }
     };
 
-    private static Color Darken(Color color, double factor) => Color.FromRgb(
-        (byte)(color.R * factor), (byte)(color.G * factor), (byte)(color.B * factor));
 }

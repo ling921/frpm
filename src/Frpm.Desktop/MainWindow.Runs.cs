@@ -13,8 +13,15 @@ internal sealed partial class MainWindow
         {
             DesktopShell.OpenDirectory(Path.Combine(_dataDirectory, "logs"));
             return Task.CompletedTask;
+        }), ActionButton("清理已结束日志", async () =>
+        {
+            if (!await ConfirmAsync("清理日志", "删除所有已结束运行的记录及对应日志文件？正在运行或已打开日志窗口的记录会保留。此操作无法撤销。")) return;
+            var excluded = OwnedWindows.OfType<LogWindow>().Select(w => w.RunId).ToArray();
+            var result = await _workspace.CleanupLogsAsync(excluded, _lifetime.Token);
+            ShowStatus($"已清理 {result.Deleted} 条记录及日志；另有 {result.Skipped} 条因文件受保护或无法删除而保留。", FluentAvalonia.UI.Controls.InfoBarSeverity.Success);
         })));
         var filter = Input(watermark: "搜索隧道名称、CLI 版本或运行摘要");
+        filter.Text = _runFilter;
         var list = new StackPanel();
         void UpdateList()
         {
@@ -39,8 +46,8 @@ internal sealed partial class MainWindow
                 if (!string.IsNullOrWhiteSpace(run.Summary)) content.Children.Add(Text(run.Summary, hint: true));
                 var actions = new List<Control>();
                 if (isRunning)
-                    actions.Add(ActionButton("停止隧道", () => _workspace.StopTunnelAsync(run.TunnelId, _lifetime.Token), danger: true));
-                actions.Add(ActionButton("查看日志", () => { new LogWindow(_workspace, run).Show(this); return Task.CompletedTask; }));
+                    actions.Add(ActionButton("停止隧道", () => _workspace.StopTunnelAsync(run.TunnelId, _lifetime.Token)));
+                actions.Add(ActionButton("查看日志", () => { ShowLogWindow(run); return Task.CompletedTask; }));
                 content.Children.Add(Actions(actions.ToArray()));
                 var row = new Border { Child = content };
                 row.Classes.Add("listRow");
@@ -49,7 +56,7 @@ internal sealed partial class MainWindow
             if (list.Children.Count == 0)
                 list.Children.Add(Section(Text(runs.Count == 0 ? "尚无运行记录。启动一条隧道后可在这里查看日志。" : "没有匹配的运行记录。")));
         }
-        filter.TextChanged += (_, _) => UpdateList();
+        filter.TextChanged += (_, _) => { _runFilter = filter.Text ?? string.Empty; UpdateList(); };
         PageContent.Children.Add(filter);
         PageContent.Children.Add(list);
         UpdateList();

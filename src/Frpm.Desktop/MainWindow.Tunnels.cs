@@ -42,7 +42,7 @@ internal sealed partial class MainWindow
 
                 var actions = new List<Control>();
                 if (tunnel.RuntimeState == TunnelRuntimeState.Running)
-                    actions.Add(ActionButton("停止", () => _workspace.StopTunnelAsync(tunnel.Id, _lifetime.Token), danger: true));
+                    actions.Add(ActionButton("停止", () => _workspace.StopTunnelAsync(tunnel.Id, _lifetime.Token)));
                 else if (tunnel.RuntimeState is not (TunnelRuntimeState.Starting or TunnelRuntimeState.Stopping))
                     actions.Add(ActionButton("启动", () => _workspace.StartTunnelAsync(tunnel.Id, _lifetime.Token), primary: true));
                 actions.Add(ActionButton("编辑", () => EditTunnelAsync(tunnel)));
@@ -58,7 +58,7 @@ internal sealed partial class MainWindow
                 {
                     if (await ConfirmAsync("删除隧道", $"这会停止并删除供应商端的“{tunnel.Name}”，是否继续？"))
                         await _workspace.DeleteTunnelAsync(tunnel.Id, _lifetime.Token);
-                }, danger: true));
+                }));
                 rowContent.Children.Add(Actions(actions.ToArray()));
                 var row = new Border { Child = rowContent };
                 row.Classes.Add("listRow");
@@ -293,6 +293,6 @@ internal sealed partial class MainWindow
     {
         var run = (await _workspace.GetRunsAsync(tunnelId, _lifetime.Token)).OrderByDescending(r => r.StartedAt).FirstOrDefault()
             ?? throw new InvalidOperationException("这条隧道尚未产生运行日志。");
-        new LogWindow(_workspace, run).Show(this);
+        ShowLogWindow(run);
     }
 }

@@ -24,19 +24,23 @@ internal sealed partial class MainWindow
         PageContent.Children.Add(Section(Stack(Text("供应商同步", size: 18), SettingField("自动同步间隔（秒）", interval),
             Actions(syncActions.ToArray()))));
         var startup = new DesktopStartupManager();
-        var startupEnabled = startup.IsSupported && await startup.IsEnabledAsync();
+        var startupEnabled = false;
+        string? startupError = null;
+        try { startupEnabled = startup.IsSupported && await startup.IsEnabledAsync(); }
+        catch (Exception ex) { startupError = ex.GetBaseException().Message; }
         var startupToggle = new ToggleSwitch
         {
             OnContent = "开",
             OffContent = "关",
             IsChecked = startupEnabled,
-            IsEnabled = startup.IsSupported,
+            IsEnabled = startup.IsSupported && startupError is null,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
         };
         var updatingStartup = false;
         async Task ApplyStartupAsync(bool requested)
         {
             if (updatingStartup) return;
+            updatingStartup = true;
             startupToggle.IsEnabled = false;
             try
             {
@@ -49,20 +53,19 @@ internal sealed partial class MainWindow
             }
             catch (Exception ex)
             {
-                updatingStartup = true;
                 startupToggle.IsChecked = startupEnabled;
-                updatingStartup = false;
                 ShowStatus($"无法更改登录启动设置：{ex.GetBaseException().Message}", InfoBarSeverity.Error);
             }
             finally
             {
                 startupToggle.IsEnabled = startup.IsSupported;
+                updatingStartup = false;
             }
         }
         startupToggle.IsCheckedChanged += async (_, _) => await ApplyStartupAsync(startupToggle.IsChecked == true);
         PageContent.Children.Add(Section(Stack(Text("启动", size: 18),
             SettingField("登录时启动", startupToggle),
-            Text(startup.IsSupported
+            Text(startupError is not null ? $"无法读取系统启动设置：{startupError}。请刷新后重试。" : startup.IsSupported
                 ? "启用后，FRPM 会在当前用户登录时启动；支持系统托盘时会在后台运行。"
                 : "当前平台暂不支持设置登录启动项。", hint: true))));
         var mode = Choice(new[] { "auto", "light", "dark" }, preferences.ThemeMode,
@@ -95,6 +98,12 @@ internal sealed partial class MainWindow
                 : "当前桌面未提供托盘，关闭窗口会询问是否退出。退出后隧道停止，下次启动会恢复。", hint: true),
                 Actions(ActionButton("打开数据目录", () => { DesktopShell.OpenDirectory(_dataDirectory); return Task.CompletedTask; }),
                 ActionButton("打开日志目录", () => { DesktopShell.OpenDirectory(Path.Combine(_dataDirectory, "logs")); return Task.CompletedTask; }),
+                ActionButton("复制诊断信息", async () =>
+                {
+                    if (Clipboard is null) throw new InvalidOperationException("当前环境无法访问剪贴板。");
+                    await Clipboard.SetTextAsync($"{Title}\n{settings.FrameworkDescription}\n{settings.OperatingSystemDescription} · {settings.Architecture}\n数据目录：{_dataDirectory}\n托盘可用：{TrayAvailable}");
+                    ShowStatus("诊断信息已复制，可粘贴到问题反馈中；不包含账号凭据或隧道配置。", InfoBarSeverity.Success);
+                }),
                 ActionButton("反馈问题", () => { DesktopShell.OpenUrl("https://github.com/ling921/frpm/issues"); return Task.CompletedTask; })))));
     }
 

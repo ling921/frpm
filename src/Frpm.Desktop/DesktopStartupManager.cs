@@ -74,11 +74,13 @@ internal sealed class DesktopStartupManager
         if (IsPackagedWindowsApplication())
         {
             var task = await StartupTask.GetAsync(StartupTaskId);
-            return task.State == StartupTaskState.Enabled;
+            using var legacyKey = Registry.CurrentUser.OpenSubKey(RunKeyPath);
+            return task.State is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy
+                || legacyKey?.GetValue(RunValueName) is string || HasLegacyMachineStartup();
         }
 #endif
         using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath);
-        return key?.GetValue(RunValueName) is string;
+        return key?.GetValue(RunValueName) is string || HasLegacyMachineStartup();
     }
 
     private async Task SetWindowsStartupEnabledAsync(bool enabled)
@@ -92,11 +94,17 @@ internal sealed class DesktopStartupManager
             if (!enabled)
             {
                 task.Disable();
+                // A previous unpackaged installation can leave a second startup entry.
+                using var legacyKey = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true);
+                legacyKey?.DeleteValue(RunValueName, throwOnMissingValue: false);
+                CheckLegacyMachineStartup();
+                if (task.State is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy)
+                    throw new InvalidOperationException("Windows 未能禁用启动任务，可能受系统策略限制。请检查“设置 > 应用 > 启动”。");
                 return;
             }
 
             var state = await task.RequestEnableAsync();
-            if (state == StartupTaskState.Enabled) return;
+            if (state is StartupTaskState.Enabled or StartupTaskState.EnabledByPolicy) return;
             throw new InvalidOperationException(state switch
             {
                 StartupTaskState.DisabledByUser => "Windows 已禁止 FRPM 登录时启动。请在“设置 > 应用 > 启动”中重新启用 FRPM。",
@@ -111,7 +119,23 @@ internal sealed class DesktopStartupManager
         if (enabled)
             key.SetValue(RunValueName, $"\"{_executablePath}\" --background", RegistryValueKind.String);
         else
+        {
             key.DeleteValue(RunValueName, throwOnMissingValue: false);
+            CheckLegacyMachineStartup();
+        }
+    }
+
+    private static bool HasLegacyMachineStartup()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        using var key = Registry.LocalMachine.OpenSubKey(RunKeyPath);
+        return key?.GetValue("FRPM Tray") is string;
+    }
+
+    private static void CheckLegacyMachineStartup()
+    {
+        if (HasLegacyMachineStartup())
+            throw new InvalidOperationException("当前版本启动项已关闭，但旧版 Windows 安装程序留下了系统级“FRPM Tray”启动项。请在 Windows 启动应用中禁用它，或卸载旧版安装程序。");
     }
 
     private void SetLinuxStartupEnabled(bool enabled)
