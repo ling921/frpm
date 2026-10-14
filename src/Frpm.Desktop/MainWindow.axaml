@@ -131,7 +131,7 @@
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="12,0,8,0"
                     VerticalAlignment="Center" IsHitTestVisible="False">
           <Image Source="avares://Frpm.Desktop/Assets/frpm-store-icon.png" Width="20" Height="20" />
-          <TextBlock Text="FRPM · 内网穿透管理" FontSize="13" FontWeight="SemiBold"
+          <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="13" FontWeight="SemiBold"
                      VerticalAlignment="Center" />
         </StackPanel>
         <Border x:Name="TitleDragRegion" Grid.Column="3" Background="Transparent" />
