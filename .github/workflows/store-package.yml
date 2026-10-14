@@ -7,7 +7,7 @@ on:
       version:
         description: Store package version (for example 0.1.2; revision is always zero)
         required: true
-        default: '0.1.2'
+        default: '0.1.3'
         type: string
       source_ref:
         description: Branch, tag or commit containing the desktop application
@@ -54,6 +54,20 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Validate release notes
+        shell: pwsh
+        run: |
+          $path = "release-notes/$env:STORE_VERSION.json"
+          $notes = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+          if (!$notes.ContainsKey('en-us')) { throw 'Release notes require an en-us fallback.' }
+          foreach ($text in $notes.Values) {
+            if ($text -isnot [string] -or [string]::IsNullOrWhiteSpace($text) -or $text.Length -gt 1500) {
+              throw 'Each release note must contain 1-1500 characters.'
+            }
+          }
+          New-Item -ItemType Directory -Force publish/msix | Out-Null
+          Copy-Item -LiteralPath $path -Destination publish/msix/release-notes.json
+
       - name: Run tests
         shell: pwsh
         run: dotnet test Frpm.slnx --configuration Release --verbosity minimal
@@ -80,7 +94,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frpm-${{ env.STORE_VERSION }}-win-x64-msixupload
-          path: publish/msix/*.msixupload
+          path: |
+            publish/msix/*.msixupload
+            publish/msix/release-notes.json
           if-no-files-found: error
           retention-days: 30
 
@@ -145,6 +161,21 @@ jobs:
         run: |
           $packages = @(Get-ChildItem -LiteralPath store-package -Filter '*.msixupload' -File)
           if ($packages.Count -ne 1) { throw 'Expected exactly one Store upload package.' }
-          msstore publish $packages[0].FullName -id 9NQHDN7WR30L
+          msstore publish $packages[0].FullName -id 9NQHDN7WR30L --noCommit
           if ($LASTEXITCODE -ne 0) { throw "Store submission failed (exit $LASTEXITCODE)." }
+          $notes = Get-Content -LiteralPath store-package/release-notes.json -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+          $raw = msstore submission get 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read Store submission.' }
+          $submission = ($raw -join "`n") | ConvertFrom-Json -AsHashtable
+          if (!$submission.Listings -or $submission.Listings.Count -eq 0) { throw 'No Store listings found.' }
+          foreach ($language in $submission.Listings.Keys) {
+            $text = if ($notes.ContainsKey($language)) { $notes[$language] } else { $notes['en-us'] }
+            if ([string]::IsNullOrWhiteSpace($text) -or $text.Length -gt 1500) { throw "Invalid notes for $language." }
+            $submission.Listings[$language].BaseListing.ReleaseNotes = $text
+            Write-Output "Updated release notes: $language"
+          }
+          msstore submission update 9NQHDN7WR30L ($submission | ConvertTo-Json -Depth 100 -Compress)
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot update Store release notes.' }
+          msstore submission publish 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot commit Store submission.' }
           'Package uploaded and submission committed to Microsoft Store. Certification and availability are managed by Microsoft; check Partner Center for final status.' >> $env:GITHUB_STEP_SUMMARY
