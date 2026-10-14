@@ -17,6 +17,11 @@ on:
       submit_to_store:
         description: Upload the package and commit the submission to Microsoft Store certification
         required: true
+        default: true
+        type: boolean
+      resume_submission:
+        description: Only inspect and finish the existing submission, without rebuilding or uploading
+        required: true
         default: false
         type: boolean
 
@@ -25,6 +30,7 @@ permissions:
 
 jobs:
   package:
+    if: ${{ !inputs.resume_submission }}
     name: Test and package Windows x64
     runs-on: windows-latest
     timeout-minutes: 30
@@ -115,7 +121,7 @@ jobs:
   submit:
     name: Upload and submit to Microsoft Store
     needs: package
-    if: ${{ inputs.submit_to_store }}
+    if: ${{ always() && inputs.submit_to_store && (needs.package.result == 'success' || inputs.resume_submission) }}
     runs-on: windows-latest
     timeout-minutes: 30
     # Credentials are isolated from the selected source code and its build scripts.
@@ -138,6 +144,7 @@ jobs:
           }
 
       - name: Download package from this build
+        if: ${{ !inputs.resume_submission }}
         uses: actions/download-artifact@v4
         with:
           pattern: frpm-*-win-x64-msixupload
@@ -157,6 +164,7 @@ jobs:
         run: msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
 
       - name: Upload package and commit submission
+        if: ${{ !inputs.resume_submission }}
         shell: pwsh
         run: |
           $packages = @(Get-ChildItem -LiteralPath store-package -Filter '*.msixupload' -File)
@@ -178,4 +186,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Cannot update Store release notes.' }
           msstore submission publish 9NQHDN7WR30L
           if ($LASTEXITCODE -ne 0) { throw 'Cannot commit Store submission.' }
-          'Package uploaded and submission committed to Microsoft Store. Certification and availability are managed by Microsoft; check Partner Center for final status.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Confirm submission enters certification
+        shell: pwsh
+        run: |
+          $deadline = [DateTime]::UtcNow.AddMinutes(20)
+          $committed = $false
+          while ([DateTime]::UtcNow -lt $deadline) {
+            $raw = msstore submission get 9NQHDN7WR30L
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot retrieve submission status.' }
+            $submission = ($raw -join "`n") | ConvertFrom-Json
+            $status = $submission.Status
+            Write-Output "Submission $($submission.Id): $status"
+            if ($status -in @('Certification', 'Release', 'PrePublishing', 'Publishing', 'Published', 'PendingPublication', 'ReadyForRelease')) {
+              "Submission $($submission.Id) accepted: $status. Microsoft controls certification and Store availability." >> $env:GITHUB_STEP_SUMMARY
+              exit 0
+            }
+            if ($status -match 'Failed|Canceled|Cancelled|Attention') {
+              $details = $submission.StatusDetails | ConvertTo-Json -Depth 20
+              throw "Store submission failed: $status. $details"
+            }
+            if ($status -eq 'PendingCommit' -and !$committed) {
+              msstore submission publish 9NQHDN7WR30L
+              if ($LASTEXITCODE -ne 0) { throw 'Cannot commit existing submission.' }
+              $committed = $true
+            }
+            Start-Sleep -Seconds 30
+          }
+          throw 'Store did not enter certification within 20 minutes. Inspect Partner Center and resume this submission; do not upload a duplicate.'
