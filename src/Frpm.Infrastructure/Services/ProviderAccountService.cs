@@ -95,9 +95,29 @@ public sealed class ProviderAccountService(
         return await providerFactory.Get(account.ProviderType).GetNodesAsync(account.ApiBaseUrl, credentialProtector.Unprotect(account.ProtectedCredentials) with { AccountId = account.Id }, cancellationToken);
     }
 
-    private ProviderAccountModel Map(ProviderAccount account) => new(
-        account.Id, account.ProviderType, account.DisplayName, account.ApiBaseUrl, account.Enabled,
-        account.LastSyncAt, account.LastSyncSucceeded, account.LastSyncMessage,
-        account.Tunnels.Count(x => x.DeletedAt is null), providerFactory.Get(account.ProviderType).Capabilities);
+    private ProviderAccountModel Map(ProviderAccount account)
+    {
+        string? clientId = null;
+        var hasClientSecret = false;
+        if (!string.IsNullOrWhiteSpace(account.ProtectedCredentials))
+        {
+            try
+            {
+                var credentials = credentialProtector.Unprotect(account.ProtectedCredentials);
+                clientId = credentials.ClientId;
+                hasClientSecret = !string.IsNullOrWhiteSpace(credentials.ClientSecret);
+            }
+            catch
+            {
+                // Unprotect may fail if keys differ or payload is unavailable
+            }
+        }
+
+        return new(
+            account.Id, account.ProviderType, account.DisplayName, account.ApiBaseUrl, account.Enabled,
+            account.LastSyncAt, account.LastSyncSucceeded, account.LastSyncMessage,
+            account.Tunnels.Count(x => x.DeletedAt is null), providerFactory.Get(account.ProviderType).Capabilities,
+            clientId, hasClientSecret);
+    }
 
 }

@@ -43,7 +43,7 @@ public sealed class ProviderOAuthService(
             }
 
             if (string.IsNullOrWhiteSpace(request.ClientSecret)
-                && string.Equals(request.ClientId, savedCredentials.ClientId, StringComparison.Ordinal))
+                && string.Equals(request.ClientId?.Trim(), savedCredentials.ClientId?.Trim(), StringComparison.OrdinalIgnoreCase))
             {
                 request.ClientSecret = savedCredentials.ClientSecret;
             }

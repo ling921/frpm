@@ -78,7 +78,7 @@ internal sealed partial class MainWindow
         var name = Input(account?.DisplayName);
         var api = Input(account?.ApiBaseUrl, "留空使用供应商默认 API 地址");
         var token = Input(watermark: account is null ? "供应商访问令牌" : "留空保留现有令牌", secret: true);
-        var clientId = Input(watermark: account is null ? "LoliaFrp OAuth Client ID" : "留空复用已保存的 Client ID");
+        var clientId = Input(account?.ClientId, watermark: account is null ? "LoliaFrp OAuth Client ID" : "留空复用已保存的 Client ID");
         var clientSecret = Input(watermark: account is null ? "OAuth Client Secret" : "留空复用已保存的 Secret", secret: true);
         var enabled = new CheckBox { Content = "启用账号并自动同步", IsChecked = account?.Enabled ?? true };
         var callbackPort = Port(8180);

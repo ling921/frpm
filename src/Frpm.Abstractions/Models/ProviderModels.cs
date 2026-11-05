@@ -13,7 +13,9 @@ public sealed record ProviderCapabilitiesModel(
 public sealed record ProviderAccountModel(
     Guid Id, ProviderType ProviderType, string DisplayName, string ApiBaseUrl, bool Enabled,
     DateTimeOffset? LastSyncAt, bool? LastSyncSucceeded, string? LastSyncMessage, int TunnelCount,
-    ProviderCapabilitiesModel Capabilities);
+    ProviderCapabilitiesModel Capabilities,
+    string? ClientId = null,
+    bool HasClientSecret = false);
 
 public sealed class SaveProviderAccountRequest
 {
