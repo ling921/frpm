@@ -2,21 +2,61 @@ using Frpm.Api;
 using Frpm.Components;
 using Frpm.Components.Account;
 using Frpm.Generated;
+using Frpm.Application;
 using Frpm.Infrastructure.Extensions;
 using Ling.RemoteServices.AspNetCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using MudBlazor.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+var resetAdminPassword = args.Any(argument => string.Equals(argument, "--reset-admin-password", StringComparison.OrdinalIgnoreCase));
+var serviceMode = OperatingSystem.IsWindows() && WindowsServiceHelpers.IsWindowsService();
+var useWindowsInstallationDataDirectory = OperatingSystem.IsWindows() && (serviceMode || resetAdminPassword);
+
+if (useWindowsInstallationDataDirectory)
+{
+    var serviceDataDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "FRPM");
+    Directory.CreateDirectory(serviceDataDirectory);
+    Directory.SetCurrentDirectory(serviceDataDirectory);
+}
+
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args.Where(argument => !string.Equals(argument, "--reset-admin-password", StringComparison.OrdinalIgnoreCase)).ToArray(),
+    ContentRootPath = useWindowsInstallationDataDirectory ? AppContext.BaseDirectory : null
+});
+
+if (useWindowsInstallationDataDirectory)
+{
+    builder.Host.UseWindowsService();
+    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["Urls"] = "http://127.0.0.1:8180"
+    });
+    builder.Configuration.AddJsonFile(
+        Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
+        optional: true,
+        reloadOnChange: true)
+        .AddJsonFile(
+            Path.Combine(Directory.GetCurrentDirectory(), "appsettings.Production.json"),
+            optional: true,
+            reloadOnChange: true);
+}
+
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
 // Add services to the container.
 builder.Services.AddMudServices();
-builder.Services.AddFrpmInfrastructure(builder.Configuration);
+builder.Services.AddFrpmApplication(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Frpm.Abstractions.Services.ICurrentUserIdentity, WebUserIdentity>();
 builder.Services.AddRemoteServices();
 builder.Services.AddHealthChecks();
+
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
@@ -53,11 +93,19 @@ var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
+    await app.Services.InitializeFrpmDatabaseAsync();
     await InitialAdminSeeder.SeedAsync(
         scope.ServiceProvider,
         scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("InitialAdminSeeder"));
+
+    if (resetAdminPassword)
+    {
+        var temporaryPassword = await InitialAdminSeeder.ResetPasswordAsync(
+            scope.ServiceProvider,
+            scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("InitialAdminSeeder"));
+        Console.WriteLine($"FRPM administrator password reset. Username: {InitialAdminSeeder.UserName}; Temporary password: {temporaryPassword}");
+        return;
+    }
 }
 
 // Configure the HTTP request pipeline.

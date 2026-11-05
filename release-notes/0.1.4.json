@@ -1,0 +1,4 @@
+{
+  "zh-cn": "新增：清理已结束运行的日志记录及文件，保留运行中和已打开查看的日志。\n改进：支持导出完整日志，并防止覆盖应用数据。\n改进：统一使用组件库按钮，修复悬停和按下时颜色丢失。\n改进：识别旧版登录启动项，改善启动设置状态和错误提示。\n优化：隐藏到托盘或打开子窗口时暂停主页面刷新；保留日志搜索条件，复用已打开的日志窗口。\n新增：标题栏双击最大化、弹窗 Esc 取消和复制诊断信息。\n修复：具体操作结果被通用成功提示覆盖的问题。",
+  "en-us": "Added cleanup of completed run records and log files, preserving active logs and open log windows.\nAdded full log export with protection against overwriting application data.\nSwitched to built-in button styles to fix hover and pressed colors.\nImproved startup status handling and detection of legacy startup entries.\nReduced background refresh, preserved log search filters, and reused existing log windows.\nAdded title-bar double-click maximize, Escape to cancel dialogs, and diagnostic information copying.\nFixed detailed operation results being replaced by generic success messages."
+}

@@ -9,7 +9,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.Extensions" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.11" />
     <PackageReference Include="Ling.AutoInject" Version="1.1.0" PrivateAssets="all" />
     <PackageReference Include="Mapster" Version="10.0.12" />
     <PackageReference Include="Mapster.DependencyInjection" Version="10.0.12" />
