@@ -18,7 +18,7 @@
     <ProjectReference Include="..\Frpm.Infrastructure\Frpm.Infrastructure.csproj" />
     <ProjectReference Include="..\Frpm.Application\Frpm.Application.csproj" />
     <PackageReference Include="Ling.RemoteServices.AspNetCore" Version="1.0.0-preview.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
