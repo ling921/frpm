@@ -149,6 +149,18 @@ public partial class Providers : ComponentBase, IAsyncDisposable
             return;
         }
 
+        var existing = _accounts.FirstOrDefault(x => x.Id == _request.Id);
+        if (_request.Id is not null
+            && !string.IsNullOrWhiteSpace(_request.ClientId)
+            && existing is not null
+            && !string.IsNullOrWhiteSpace(existing.ClientId)
+            && !string.Equals(_request.ClientId.Trim(), existing.ClientId.Trim(), StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(_request.ClientSecret))
+        {
+            Snackbar.Add("您更改了 Client ID，请同时填写对应的 Client Secret。", Severity.Warning);
+            return;
+        }
+
         try
         {
             _busy = true;
@@ -194,6 +206,40 @@ public partial class Providers : ComponentBase, IAsyncDisposable
         await InvokeAsync(StateHasChanged);
     }
 
+    private async Task ReauthorizeAsync(ProviderAccountModel account)
+    {
+        try
+        {
+            _busy = true;
+            if (!await JSRuntime.InvokeAsync<bool>("frpmOAuth.openPending"))
+            {
+                Snackbar.Add("浏览器阻止了授权弹窗，请允许本站打开弹窗后重试。", Severity.Warning);
+                _busy = false;
+                return;
+            }
+
+            var result = await OAuthService.StartLoliaAsync(new()
+            {
+                AccountId = account.Id,
+                DisplayName = account.DisplayName,
+                ApiBaseUrl = string.IsNullOrWhiteSpace(account.ApiBaseUrl)
+                    ? BuiltInProviderCatalog.Get(account.ProviderType).DefaultApiBaseUrl
+                    : account.ApiBaseUrl,
+                ClientId = account.ClientId ?? string.Empty,
+                ClientSecret = null,
+                CallbackUrl = new Uri(new Uri(Navigation.BaseUri), "oauth/lolia/callback").ToString(),
+                Enabled = account.Enabled
+            });
+            await JSRuntime.InvokeVoidAsync("frpmOAuth.navigate", result.AuthorizationUrl);
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("frpmOAuth.cancel");
+            Snackbar.Add(ex.Message, Severity.Error);
+            _busy = false;
+        }
+    }
+
     private void Edit(ProviderAccountModel account)
     {
         _request = new()
@@ -202,7 +248,8 @@ public partial class Providers : ComponentBase, IAsyncDisposable
             ProviderType = account.ProviderType,
             DisplayName = account.DisplayName,
             ApiBaseUrl = account.ApiBaseUrl,
-            Enabled = account.Enabled
+            Enabled = account.Enabled,
+            ClientId = account.ClientId
         };
         _editorOpen = true;
     }

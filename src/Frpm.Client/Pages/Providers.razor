@@ -30,17 +30,17 @@
             {
                 <MudItem xs="12" md="3">
                     <MudTextField Label="OAuth Client ID" @bind-Value="_request.ClientId" Variant="Variant.Outlined"
-                                  HelperText="编辑已有账号时留空可复用已保存的 Client ID" />
+                                  HelperText="@(_request.Id is not null ? "已显示当前绑定的 Client ID" : "请输入 OAuth Client ID")" />
                 </MudItem>
                 <MudItem xs="12" md="3">
                     <MudTextField Label="OAuth Client Secret" @bind-Value="_request.ClientSecret"
                                   InputType="InputType.Password" Variant="Variant.Outlined"
-                                  HelperText="编辑已有账号时留空可复用已保存的 Secret；输入新 Client ID 时请同时填写对应 Secret" />
+                                  HelperText="@(_request.Id is not null ? "留空表示复用已保存的 Secret；如更换 Client ID 请输入新 Secret" : "请输入 OAuth Client Secret")" />
                 </MudItem>
                 <MudItem xs="12">
                     <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Login"
                                OnClick="StartOAuthAsync" Disabled="_busy">
-                        使用 Authorization Code + PKCE 授权并创建账号
+                        @(_request.Id is null ? "使用 Authorization Code + PKCE 授权并创建账号" : "重新授权 (OAuth)")
                     </MudButton>
                 </MudItem>
             }
@@ -91,10 +91,27 @@ else
                         <MudText Typo="Typo.caption" Color="@(account.LastSyncSucceeded == false ? Color.Error : Color.Secondary)">
                             @(account.LastSyncAt is null ? "尚未同步" : $"上次同步：{account.LastSyncAt.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {account.LastSyncMessage}")
                         </MudText>
+                        @if (BuiltInProviderCatalog.Get(account.ProviderType).SupportsOAuth && account.LastSyncSucceeded == false)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                令牌可能已过期，请点击下方“重新认证”。
+                            </MudAlert>
+                        }
                     </MudCardContent>
                     <MudCardActions>
                         <MudButton Size="Size.Small" OnClick="() => SyncAsync(account)">同步</MudButton>
                         <MudButton Size="Size.Small" OnClick="() => Edit(account)">编辑</MudButton>
+                        @if (BuiltInProviderCatalog.Get(account.ProviderType).SupportsOAuth)
+                        {
+                            <MudButton Size="Size.Small"
+                                       Color="@(account.LastSyncSucceeded == false ? Color.Error : Color.Secondary)"
+                                       Variant="@(account.LastSyncSucceeded == false ? Variant.Filled : Variant.Text)"
+                                       StartIcon="@Icons.Material.Filled.Login"
+                                       OnClick="() => ReauthorizeAsync(account)"
+                                       Disabled="_busy">
+                                重新认证
+                            </MudButton>
+                        }
                         <MudSpacer />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => DeleteAsync(account)" />
                     </MudCardActions>

@@ -121,8 +121,18 @@ public sealed class TunnelService(
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var tunnel = await db.Tunnels.Include(x => x.ProviderAccount).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("隧道不存在。");
-        var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
-        await provider.DeleteTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id }, ToProvider(tunnel), cancellationToken);
+        if (tunnel.RemoteState != TunnelRemoteState.RemoteMissing)
+        {
+            try
+            {
+                var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
+                await provider.DeleteTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id }, ToProvider(tunnel), cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "远端隧道 {TunnelId} ({RemoteId}) 删除失败，仍将清理本地记录。", tunnel.Id, tunnel.RemoteId);
+            }
+        }
         tunnel.RemoteState = TunnelRemoteState.Deleted;
         tunnel.DeletedAt = DateTimeOffset.UtcNow;
         tunnel.UpdatedAt = DateTimeOffset.UtcNow;

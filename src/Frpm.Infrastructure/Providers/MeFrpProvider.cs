@@ -138,6 +138,23 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         CancellationToken cancellationToken)
     {
         var proxyId = ParseProxyId(tunnel.RemoteId);
+        var isMeFrpc = Path.GetFileNameWithoutExtension(executablePath).Contains("mefrp", StringComparison.OrdinalIgnoreCase);
+        if (isMeFrpc)
+        {
+            var frpToken = await GetFrpTokenAsync(apiBaseUrl, credentials, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(frpToken))
+            {
+                var sensitive = new HashSet<string>(StringComparer.Ordinal) { credentials.AccessToken ?? "", frpToken };
+                sensitive.Remove("");
+                return new(
+                    executablePath,
+                    workingDirectory,
+                    ["-t", frpToken, "-p", proxyId.ToString()],
+                    new Dictionary<string, string?>(),
+                    sensitive.ToList());
+            }
+        }
+
         using var document = await SendAsync(
             apiBaseUrl,
             credentials,
@@ -148,10 +165,65 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         EnsureSuccess(document.RootElement);
         var config = String(Data(document.RootElement), "config")
             ?? throw new InvalidOperationException("ME Frp 未返回 frpc 配置。");
+        config = FixTomlConfig(config);
         Directory.CreateDirectory(workingDirectory);
         var configPath = Path.Combine(workingDirectory, "frpc.toml");
         await File.WriteAllTextAsync(configPath, config, cancellationToken);
         return new(executablePath, workingDirectory, ["-c", configPath], new Dictionary<string, string?>(), [credentials.AccessToken ?? ""]);
+    }
+
+    internal static string FixTomlConfig(string config)
+    {
+        if (string.IsNullOrWhiteSpace(config))
+        {
+            return config;
+        }
+
+        var lines = config.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        var inMetadatas = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].Trim();
+            if (trimmed.StartsWith('[') && trimmed.EndsWith(']'))
+            {
+                inMetadatas = trimmed.Contains("metadatas", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (inMetadatas)
+            {
+                lines[i] = System.Text.RegularExpressions.Regex.Replace(
+                    lines[i],
+                    @"(=[ \t]*)(true|false|\d+)([ \t]*(?:#.*)?)$",
+                    "$1\"$2\"$3",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    private async Task<string> GetFrpTokenAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "auth/user/frpToken", null, cancellationToken);
+            EnsureSuccess(document.RootElement);
+            var token = String(Data(document.RootElement), "token");
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                return token;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Fall back to credentials.AccessToken
+        }
+
+        return credentials.AccessToken ?? string.Empty;
     }
 
     private static object CreateBody(SaveTunnelRequest request, string name, string? fallbackNodeId) => new
