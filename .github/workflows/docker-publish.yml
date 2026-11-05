@@ -51,7 +51,7 @@ jobs:
           flavor: latest=false
           tags: |
             type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
+            type=raw,value=latest,enable=${{ !contains(env.RELEASE_TAG, '-') && (github.event_name != 'release' || !github.event.release.prerelease) }}
 
       - name: Build and push image
         uses: docker/build-push-action@v7
