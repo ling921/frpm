@@ -30,7 +30,7 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
-  SOURCE_REF: ${{ inputs.source_ref != '' && inputs.source_ref || (github.event_name == 'release' && github.event.release.tag_name || inputs.tag) }}
+  SOURCE_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref || inputs.tag }}
   IMAGE_NAME: tomcn/frpm
 
 jobs:
@@ -216,7 +216,7 @@ jobs:
           fail_on_unmatched_files: false
 
       - name: Authenticate and submit to Microsoft Store
-        if: ${{ (github.event_name != 'workflow_dispatch' || inputs.submit_to_store) && secrets.AZURE_AD_APPLICATION_CLIENT_ID != '' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.submit_to_store }}
         shell: pwsh
         env:
           TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
@@ -224,6 +224,10 @@ jobs:
           CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
           SELLER_ID: ${{ secrets.SELLER_ID }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:CLIENT_ID) -or [string]::IsNullOrWhiteSpace($env:TENANT_ID)) {
+            Write-Host "Azure AD credentials not provided; skipping Microsoft Store submission."
+            exit 0
+          }
           dotnet tool install -g Microsoft.Store.CLI
           msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
           $packages = @(Get-ChildItem -LiteralPath publish/msix -Filter '*.msixupload' -File)

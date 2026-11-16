@@ -25,7 +25,7 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
-  SOURCE_REF: ${{ inputs.source_ref != '' && inputs.source_ref || (github.event_name == 'release' && github.event.release.tag_name || inputs.tag) }}
+  SOURCE_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref || inputs.tag }}
   IMAGE_NAME: tomcn/frpm
 
 jobs:
