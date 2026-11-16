@@ -1,0 +1,306 @@
+name: Production Release
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.1)'
+        required: true
+        type: string
+      source_ref:
+        description: 'Branch, tag, or commit to build'
+        required: false
+        default: ''
+        type: string
+      submit_to_store:
+        description: 'Upload and submit package to Microsoft Store certification'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-release-${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+  SOURCE_REF: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.source_ref || inputs.tag }}
+  IMAGE_NAME: tomcn/frpm
+
+jobs:
+  linux-packages:
+    name: Build Linux packages (${{ matrix.rid }})
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+          - rid: linux-arm64
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Publish self-contained Avalonia desktop application
+        run: >-
+          dotnet publish src/Frpm.Desktop/Frpm.Desktop.csproj
+          --configuration Release
+          --framework net11.0
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --output publish/${{ matrix.rid }}/FRPM
+
+      - name: Add startup and service scripts
+        shell: bash
+        run: |
+          printf '#!/usr/bin/env sh\nset -eu\ncd -- "$(dirname -- "$0")"\nexec ./Frpm.Desktop "$@"\n' > publish/${{ matrix.rid }}/FRPM/start.sh
+          chmod +x publish/${{ matrix.rid }}/FRPM/Frpm.Desktop publish/${{ matrix.rid }}/FRPM/start.sh
+          mkdir -p publish/${{ matrix.rid }}/FRPM/systemd
+          cp installer/linux/frpm.service publish/${{ matrix.rid }}/FRPM/systemd/frpm.service
+          cp installer/linux/install-systemd.sh publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh
+          cp installer/linux/install-desktop.sh publish/${{ matrix.rid }}/FRPM/install-desktop.sh
+          chmod +x publish/${{ matrix.rid }}/FRPM/systemd/install-systemd.sh publish/${{ matrix.rid }}/FRPM/install-desktop.sh
+
+      - name: Package archive
+        shell: bash
+        run: |
+          mkdir -p dist
+          tar -C publish/${{ matrix.rid }} -czf dist/frpm-${{ env.RELEASE_TAG }}-${{ matrix.rid }}.tar.gz FRPM
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: dist/*
+          fail_on_unmatched_files: true
+
+  windows-installer:
+    name: Build Windows installer
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Generate multi-size Windows app icon
+        shell: pwsh
+        run: '& installer/windows/New-FrpmIcon.ps1 -OutputPath src/Frpm.Desktop/Assets/frpm.ico'
+
+      - name: Publish Avalonia desktop application
+        shell: pwsh
+        run: |
+          dotnet publish src/Frpm.Desktop/Frpm.Desktop.csproj --configuration Release --framework net11.0-windows10.0.19041.0 --runtime win-x64 --self-contained true --output publish/win-x64/desktop
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Download Simplified Chinese installer language
+        shell: pwsh
+        run: Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl' -OutFile installer/windows/ChineseSimplified.isl
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          $sourceDir = Join-Path $env:GITHUB_WORKSPACE 'publish\win-x64'
+          & installer/windows/New-FrpmIcon.ps1 -OutputPath installer/windows/frpm.ico
+          & $compiler "/DMyAppVersion=${env:RELEASE_TAG}" "/DSourceDir=$sourceDir" installer/windows/FRPM.iss
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            dist/frpm-*-win-x64-setup.exe
+            installer/msix/frpm-microsoft-store.url
+          fail_on_unmatched_files: true
+
+  windows-store:
+    name: Build and submit Microsoft Store package
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Validate version
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v?(\d+)\.(\d+)\.(\d+)(?:\.0)?$') {
+            throw "Use major.minor.patch for Store package; got $env:RELEASE_TAG."
+          }
+          $version = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
+          "STORE_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Validate release notes
+        shell: pwsh
+        run: |
+          $path = "release-notes/$env:STORE_VERSION.json"
+          if (!(Test-Path -LiteralPath $path)) {
+            throw "Release notes file missing: $path"
+          }
+          $notes = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+          if (!$notes.ContainsKey('en-us')) { throw 'Release notes require an en-us fallback.' }
+          New-Item -ItemType Directory -Force publish/msix | Out-Null
+          Copy-Item -LiteralPath $path -Destination publish/msix/release-notes.json
+
+      - name: Generate Windows icon
+        shell: pwsh
+        run: '& installer/windows/New-FrpmIcon.ps1 -OutputPath src/Frpm.Desktop/Assets/frpm.ico'
+
+      - name: Publish desktop application
+        shell: pwsh
+        run: dotnet publish src/Frpm.Desktop/Frpm.Desktop.csproj --configuration Release --framework net11.0-windows10.0.19041.0 --runtime win-x64 --self-contained true -p:Version=$env:STORE_VERSION --output publish/win-x64/desktop
+
+      - name: Build Store upload package
+        shell: pwsh
+        run: |
+          $makeAppx = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter makeappx.exe -Recurse |
+            Where-Object { $_.Directory.Name -eq 'x64' } |
+            Sort-Object { [version]$_.Directory.Parent.Name } -Descending |
+            Select-Object -First 1
+          if ($null -eq $makeAppx) { throw 'MakeAppx.exe was not found.' }
+          & installer/msix/New-FrpmMsix.ps1 -SourceDirectory publish/win-x64 -OutputDirectory publish/msix -Version $env:STORE_VERSION -MakeAppxPath $makeAppx.FullName
+
+      - name: Upload Store package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frpm-${{ env.STORE_VERSION }}-win-x64-msixupload
+          path: |
+            publish/msix/*.msixupload
+            publish/msix/release-notes.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: publish/msix/*.msixupload
+          fail_on_unmatched_files: false
+
+      - name: Authenticate and submit to Microsoft Store
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.submit_to_store }}
+        shell: pwsh
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CLIENT_ID) -or [string]::IsNullOrWhiteSpace($env:TENANT_ID)) {
+            Write-Host "Azure AD credentials not provided; skipping Microsoft Store submission."
+            exit 0
+          }
+          dotnet tool install -g Microsoft.Store.CLI
+          msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
+          $packages = @(Get-ChildItem -LiteralPath publish/msix -Filter '*.msixupload' -File)
+          if ($packages.Count -ne 1) { throw 'Expected exactly one Store upload package.' }
+          msstore publish $packages[0].FullName -id 9NQHDN7WR30L --noCommit
+          if ($LASTEXITCODE -ne 0) { throw "Store submission failed (exit $LASTEXITCODE)." }
+          $notes = Get-Content -LiteralPath publish/msix/release-notes.json -Raw -Encoding utf8 | ConvertFrom-Json -AsHashtable
+          $raw = msstore submission get 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read Store submission.' }
+          $submission = ($raw -join "`n") | ConvertFrom-Json -AsHashtable
+          if (!$submission.Listings -or $submission.Listings.Count -eq 0) { throw 'No Store listings found.' }
+          foreach ($language in $submission.Listings.Keys) {
+            $text = if ($notes.ContainsKey($language)) { $notes[$language] } else { $notes['en-us'] }
+            $submission.Listings[$language].BaseListing.ReleaseNotes = $text
+          }
+          msstore submission update 9NQHDN7WR30L ($submission | ConvertTo-Json -Depth 100 -Compress)
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot update Store release notes.' }
+          msstore submission publish 9NQHDN7WR30L
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot commit Store submission.' }
+
+  docker-publish:
+    name: Build and publish Docker image
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: ${{ vars.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+            type=raw,value=latest
+
+      - name: Build and push image
+        if: ${{ vars.DOCKERHUB_USERNAME != '' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update Docker Hub description
+        if: ${{ vars.DOCKERHUB_USERNAME != '' }}
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE_NAME }}
+          short-description: FRPM：面向第三方 FRP 服务的 Web 管理平台
+          readme-filepath: ./DOCKERHUB.md
+          enable-url-completion: true

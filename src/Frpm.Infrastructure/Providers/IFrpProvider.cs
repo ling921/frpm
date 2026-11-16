@@ -102,6 +102,19 @@ public interface IFrpProvider
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// 创建远端隧道（支持单条或成对创建，如 TCP+UDP）。
+    /// </summary>
+    Task<IReadOnlyList<ProviderTunnel>> CreateTunnelsAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        SaveTunnelRequest request,
+        CancellationToken cancellationToken)
+    {
+        return CreateTunnelAsync(apiBaseUrl, credentials, request, cancellationToken)
+            .ContinueWith(t => (IReadOnlyList<ProviderTunnel>)[t.Result], TaskContinuationOptions.ExecuteSynchronously);
+    }
+
+    /// <summary>
     /// 更新远端隧道。
     /// </summary>
     Task<ProviderTunnel> UpdateTunnelAsync(
@@ -130,6 +143,25 @@ public interface IFrpProvider
         string executablePath,
         string workingDirectory,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 强制下线远端幽灵会话（若供应商支持）。
+    /// </summary>
+    Task KickTunnelAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        string remoteId,
+        CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// 切换远端隧道禁用状态（若供应商支持）。
+    /// </summary>
+    Task SetTunnelDisabledAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        string remoteId,
+        bool isDisabled,
+        CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
 /// <summary>

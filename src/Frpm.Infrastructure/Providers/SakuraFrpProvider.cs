@@ -103,7 +103,15 @@ public sealed class SakuraFrpProvider(IHttpClientFactory httpClientFactory) : Ht
         ProviderTunnel tunnel,
         CancellationToken cancellationToken)
     {
-        using var _ = await SendAsync(apiBaseUrl, credentials, HttpMethod.Post, "tunnel/delete", new { ids = tunnel.RemoteId }, cancellationToken);
+        if (string.IsNullOrWhiteSpace(tunnel.RemoteId)) return;
+        try
+        {
+            using var _ = await SendAsync(apiBaseUrl, credentials, HttpMethod.Post, "tunnel/delete", new { ids = tunnel.RemoteId }, cancellationToken);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("404") || ex.Message.Contains("不存在") || ex.Message.Contains("not found"))
+        {
+            // 远端隧道已不存在，视为已删除（幂等）
+        }
     }
 
     public Task<LaunchSpecification> PrepareLaunchAsync(

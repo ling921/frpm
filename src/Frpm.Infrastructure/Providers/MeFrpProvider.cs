@@ -96,20 +96,56 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         SaveTunnelRequest request,
         CancellationToken cancellationToken)
     {
+        var proxyId = ParseProxyId(current.RemoteId);
         using var document = await SendAsync(
             apiBaseUrl,
             credentials,
             HttpMethod.Post,
             "auth/proxy/update",
-            CreateBody(request, current.Name, current.NodeId),
+            CreateUpdateBody(request, proxyId, request.Name, current.NodeId),
             cancellationToken);
         EnsureSuccess(document.RootElement);
-        return FromRequest(request, current.RemoteId, current.Name, current.PayloadJson) with
+        return FromRequest(request, current.RemoteId, request.Name, current.PayloadJson) with
         {
             NodeId = current.NodeId,
             NodeName = current.NodeName,
             ProviderStatus = current.ProviderStatus
         };
+    }
+
+    public async Task KickTunnelAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        string remoteId,
+        CancellationToken cancellationToken)
+    {
+        var proxyId = ParseProxyId(remoteId);
+        using var document = await SendAsync(
+            apiBaseUrl,
+            credentials,
+            HttpMethod.Post,
+            "auth/proxy/kick",
+            new { proxyId },
+            cancellationToken);
+        EnsureSuccess(document.RootElement);
+    }
+
+    public async Task SetTunnelDisabledAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        string remoteId,
+        bool isDisabled,
+        CancellationToken cancellationToken)
+    {
+        var proxyId = ParseProxyId(remoteId);
+        using var document = await SendAsync(
+            apiBaseUrl,
+            credentials,
+            HttpMethod.Post,
+            "auth/proxy/toggle",
+            new { proxyId, isDisabled },
+            cancellationToken);
+        EnsureSuccess(document.RootElement);
     }
 
     public async Task DeleteTunnelAsync(
@@ -119,14 +155,22 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         CancellationToken cancellationToken)
     {
         var proxyId = ParseProxyId(tunnel.RemoteId);
-        using var document = await SendAsync(
-            apiBaseUrl,
-            credentials,
-            HttpMethod.Post,
-            "auth/proxy/delete",
-            new { proxyId },
-            cancellationToken);
-        EnsureSuccess(document.RootElement);
+        if (proxyId <= 0) return;
+        try
+        {
+            using var document = await SendAsync(
+                apiBaseUrl,
+                credentials,
+                HttpMethod.Post,
+                "auth/proxy/delete",
+                new { proxyId },
+                cancellationToken);
+            EnsureSuccess(document.RootElement);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("404") || ex.Message.Contains("不存在") || ex.Message.Contains("not found"))
+        {
+            // 远端隧道已不存在，视为已删除（幂等）
+        }
     }
 
     public async Task<LaunchSpecification> PrepareLaunchAsync(
@@ -138,6 +182,17 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         CancellationToken cancellationToken)
     {
         var proxyId = ParseProxyId(tunnel.RemoteId);
+
+        // 确保远端隧道不处于禁用状态（如用户在官网或通过 kick 导致 isDisabled=true 时自动解禁）
+        try
+        {
+            await SetTunnelDisabledAsync(apiBaseUrl, credentials, tunnel.RemoteId, false, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 解禁尝试失败不阻断后续启动流程
+        }
+
         var isMeFrpc = Path.GetFileNameWithoutExtension(executablePath).Contains("mefrp", StringComparison.OrdinalIgnoreCase);
         if (isMeFrpc)
         {
@@ -149,7 +204,7 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
                 return new(
                     executablePath,
                     workingDirectory,
-                    ["-t", frpToken, "-p", proxyId.ToString()],
+                    ["-t", frpToken, "-p", proxyId.ToString(), "-n"],
                     new Dictionary<string, string?>(),
                     sensitive.ToList());
             }
@@ -208,22 +263,30 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         ProviderCredentials credentials,
         CancellationToken cancellationToken)
     {
-        try
+        Exception? lastException = null;
+        for (var attempt = 1; attempt <= 3; attempt++)
         {
-            using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "auth/user/frpToken", null, cancellationToken);
-            EnsureSuccess(document.RootElement);
-            var token = String(Data(document.RootElement), "token");
-            if (!string.IsNullOrWhiteSpace(token))
+            try
             {
-                return token;
+                using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "auth/user/frpToken", null, cancellationToken);
+                EnsureSuccess(document.RootElement);
+                var token = String(Data(document.RootElement), "token");
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    return token;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lastException = ex;
+                if (attempt < 3)
+                {
+                    await Task.Delay(500 * attempt, cancellationToken);
+                }
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Fall back to credentials.AccessToken
-        }
 
-        return credentials.AccessToken ?? string.Empty;
+        throw new InvalidOperationException($"获取 ME Frp 客户端启动密钥 (frpToken) 失败: {lastException?.Message ?? "未返回有效 Token"}");
     }
 
     private static object CreateBody(SaveTunnelRequest request, string name, string? fallbackNodeId) => new
@@ -238,6 +301,25 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
             : JsonSerializer.Serialize(TunnelInputRules.ParseDomains(request.CustomDomain)),
         proxyType = request.Type,
         accessKey = string.Empty,
+        hostHeaderRewrite = Advanced(request, "hostHeaderRewrite") ?? "",
+        headerXFromWhere = Advanced(request, "headerXFromWhere") ?? "",
+        proxyProtocolVersion = Advanced(request, "proxyProtocolVersion") ?? "",
+        useEncryption = AdvancedBoolean(request, "useEncryption"),
+        useCompression = AdvancedBoolean(request, "useCompression")
+    };
+
+    private static object CreateUpdateBody(SaveTunnelRequest request, int proxyId, string name, string? fallbackNodeId) => new
+    {
+        proxyId = proxyId,
+        nodeId = int.TryParse(request.NodeId ?? fallbackNodeId, out var nodeId) ? nodeId : 0,
+        proxyName = name,
+        localIp = request.LocalAddress,
+        localPort = request.LocalPort,
+        remotePort = request.RemotePort,
+        domain = string.IsNullOrWhiteSpace(request.CustomDomain)
+            ? ""
+            : JsonSerializer.Serialize(TunnelInputRules.ParseDomains(request.CustomDomain)),
+        proxyType = request.Type,
         hostHeaderRewrite = Advanced(request, "hostHeaderRewrite") ?? "",
         headerXFromWhere = Advanced(request, "headerXFromWhere") ?? "",
         proxyProtocolVersion = Advanced(request, "proxyProtocolVersion") ?? "",

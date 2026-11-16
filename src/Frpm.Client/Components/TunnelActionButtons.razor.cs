@@ -8,6 +8,8 @@ public partial class TunnelActionButtons : ComponentBase
 
     [Parameter, EditorRequired] public EventCallback<TunnelModel> Stop { get; set; }
 
+    [Parameter] public EventCallback<TunnelModel> Kick { get; set; }
+
     [Parameter, EditorRequired] public EventCallback<TunnelModel> Edit { get; set; }
 
     [Parameter, EditorRequired] public EventCallback<TunnelModel> OpenLog { get; set; }

@@ -1,5 +1,6 @@
 using Frpm.Data;
 using Frpm.Domain.Entities;
+using Frpm.Infrastructure.Runtime;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -32,11 +33,40 @@ public sealed class TunnelSyncWorker(
                 var sync = scope.ServiceProvider.GetRequiredService<TunnelSyncService>();
                 foreach (var id in ids)
                 {
-                    try { await sync.SyncAsync(id, stoppingToken); }
-                    catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "后台同步 {AccountId} 失败", id); }
+                    try
+                    {
+                        await sync.SyncAsync(id, stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "后台同步 {AccountId} 失败", id);
+                    }
+                }
+
+                // Check and auto-recover any failed tunnels with DesiredState == Running
+                try
+                {
+                    var supervisor = scope.ServiceProvider.GetRequiredService<ITunnelProcessSupervisor>();
+                    await supervisor.CheckAndRecoverTunnelsAsync(stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "后台巡检自动恢复隧道失败");
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
             {
                 logger.LogError(ex, "后台隧道同步任务失败");
             }
@@ -45,7 +75,14 @@ public sealed class TunnelSyncWorker(
                 coordinator.MarkSyncCompleted(DateTimeOffset.UtcNow, interval);
             }
 
-            await coordinator.WaitAsync(interval, stoppingToken);
+            try
+            {
+                await coordinator.WaitAsync(interval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
         }
     }
 }

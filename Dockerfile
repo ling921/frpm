@@ -1,11 +1,11 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
-COPY NuGet.Config Frpm.slnx ./
+COPY NuGet.Config Frpm.slnx Directory.Build.props ./
 COPY src ./src
 RUN dotnet restore src/Frpm/Frpm.csproj
 RUN dotnet publish src/Frpm/Frpm.csproj -c Release --no-restore -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \

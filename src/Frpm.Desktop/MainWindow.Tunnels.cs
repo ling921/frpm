@@ -115,7 +115,7 @@ internal sealed partial class MainWindow
         var name = Input(tunnel?.Name);
         var remark = Input(tunnel?.Remark);
         var selectedAccount = (ProviderAccountModel)accountBox.SelectedItem!;
-        var type = Choice(TunnelInputRules.TypesFor(selectedAccount.ProviderType), tunnel?.Type ?? "tcp", t => t.ToUpperInvariant());
+        var type = Choice(TunnelInputRules.TypesFor(selectedAccount.ProviderType, isEditing: tunnel is not null), tunnel?.Type ?? "tcp", t => t.ToUpperInvariant());
         var nodes = Choice(Array.Empty<ProviderNodeModel>(), null, n => $"{n.Name} · {(n.Available ? "可用" : "不可用")} · {n.Id}");
         var nodeHelp = Text("正在加载节点…", hint: true);
         var suggestions = await _workspace.GetLocalAddressesAsync(_lifetime.Token);
@@ -205,7 +205,7 @@ internal sealed partial class MainWindow
         accountBox.SelectionChanged += async (_, _) =>
         {
             var account = (ProviderAccountModel)accountBox.SelectedItem!;
-            type.ItemsSource = TunnelInputRules.TypesFor(account.ProviderType);
+            type.ItemsSource = TunnelInputRules.TypesFor(account.ProviderType, isEditing: tunnel is not null);
             type.SelectedItem = "tcp";
             randomRemotePort.IsEnabled = !account.Capabilities.HasNodes;
             UpdateTypeFields();

@@ -3,6 +3,12 @@
                    Color="@(IsRunning ? Color.Warning : Color.Success)"
                    Size="Size.Small"
                    OnClick="ToggleAsync" />
+    @if (Kick.HasDelegate)
+    {
+        <MudTooltip Text="强制下线并重置（解除服务端残留与禁用状态）">
+            <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew" Color="Color.Secondary" Size="Size.Small" OnClick="() => Kick.InvokeAsync(Tunnel)" />
+        </MudTooltip>
+    }
     <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit.InvokeAsync(Tunnel)" />
     <MudIconButton Icon="@Icons.Material.Filled.Article" Size="Size.Small" OnClick="() => OpenLog.InvokeAsync(Tunnel)" />
     <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Delete.InvokeAsync(Tunnel)" />
