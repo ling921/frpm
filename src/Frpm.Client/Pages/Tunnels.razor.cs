@@ -37,7 +37,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         : _tunnels.Where(MatchesSearch).ToList();
     private bool RequiresNode => _accounts.FirstOrDefault(account => account.Id == _request.ProviderAccountId)?.Capabilities.HasNodes == true;
     private ProviderType SelectedProviderType => _accounts.FirstOrDefault(account => account.Id == _request.ProviderAccountId)?.ProviderType ?? ProviderType.SakuraFrp;
-    private IReadOnlyList<string> AvailableTunnelTypes => TunnelInputRules.TypesFor(SelectedProviderType);
+    private IReadOnlyList<string> AvailableTunnelTypes => TunnelInputRules.TypesFor(SelectedProviderType, isEditing: _request.TunnelId is not null);
     private bool RequiresLocalEndpoint => TunnelInputRules.RequiresLocalEndpoint(SelectedProviderType, _request.Type);
     private bool UsesDomains => TunnelInputRules.IsDomainType(_request.Type);
     private bool UsesRemotePort => TunnelInputRules.UsesRemotePort(SelectedProviderType, _request.Type);
@@ -175,7 +175,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     {
         _request.ProviderAccountId = accountId;
         _request.NodeId = null;
-        if (!TunnelInputRules.TypesFor(SelectedProviderType).Contains(_request.Type, StringComparer.OrdinalIgnoreCase))
+        if (!TunnelInputRules.TypesFor(SelectedProviderType, isEditing: _request.TunnelId is not null).Contains(_request.Type, StringComparer.OrdinalIgnoreCase))
         {
             OnTunnelTypeChanged("tcp");
         }
@@ -347,6 +347,35 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task KickAsync(TunnelModel tunnel)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "强制下线并重置",
+            $"将向供应商发送强制下线指令并解除禁用状态，同时重置运行状态。适用于隧道残留导致“隧道当前在线”或连接异常的情况。是否继续？",
+            yesText: "执行下线",
+            cancelText: "取消");
+        if (confirmed is not true)
+        {
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+            await TunnelService.KickAsync(tunnel.Id, _cts.Token);
+            Snackbar.Add("已向供应商发送下线指令并解除禁用。", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"强制下线失败：{ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 

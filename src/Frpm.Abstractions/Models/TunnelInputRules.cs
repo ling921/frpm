@@ -6,9 +6,20 @@ public static class TunnelInputRules
 {
     private static readonly IReadOnlyList<string> StandardTypes = ["tcp", "udp", "http", "https"];
     private static readonly IReadOnlyList<string> SakuraTypes = ["tcp", "udp", "http", "https", "wol", "etcp", "eudp"];
+    private static readonly IReadOnlyList<string> LoliaTypes = ["tcp", "udp", "tcp+udp", "http", "https"];
 
-    public static IReadOnlyList<string> TypesFor(ProviderType providerType) =>
-        providerType == ProviderType.SakuraFrp ? SakuraTypes : StandardTypes;
+    public static IReadOnlyList<string> TypesFor(ProviderType providerType, bool isEditing = false)
+    {
+        var types = providerType switch
+        {
+            ProviderType.SakuraFrp => SakuraTypes,
+            ProviderType.LoliaFrp => LoliaTypes,
+            _ => StandardTypes
+        };
+        return isEditing
+            ? types.Where(t => !string.Equals(t, "tcp+udp", StringComparison.OrdinalIgnoreCase)).ToList()
+            : types;
+    }
 
     public static bool IsDomainType(string? type) =>
         type is not null && (type.Equals("http", StringComparison.OrdinalIgnoreCase)

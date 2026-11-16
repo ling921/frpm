@@ -27,9 +27,115 @@ public sealed class TunnelProcessSupervisor(
     ILogger<TunnelProcessSupervisor> logger) : ITunnelProcessSupervisor
 {
     private readonly ConcurrentDictionary<Guid, ManagedProcess> _processes = new();
+    private readonly ConcurrentDictionary<Guid, TunnelCircuitBreakerState> _circuitBreakers = new();
     private readonly string _dataDirectory = Path.GetFullPath(storageOptions.Value.DataDirectory);
 
-    public async Task StartAsync(Guid tunnelId, CancellationToken cancellationToken = default)
+    public Task StartAsync(Guid tunnelId, CancellationToken cancellationToken = default)
+    {
+        ResetCircuitBreaker(tunnelId);
+        return StartCoreAsync(tunnelId, isAutoRetry: false, cancellationToken);
+    }
+
+    public TunnelCircuitBreakerState? GetCircuitBreakerStatus(Guid tunnelId) =>
+        _circuitBreakers.TryGetValue(tunnelId, out var state) ? state : null;
+
+    public void ResetCircuitBreaker(Guid tunnelId)
+    {
+        _circuitBreakers.AddOrUpdate(tunnelId,
+            _ => new TunnelCircuitBreakerState(),
+            (_, state) =>
+            {
+                state.ConsecutiveFailures = 0;
+                state.IsTripped = false;
+                state.TripReason = null;
+                state.NextRetryTime = null;
+                return state;
+            });
+    }
+
+    public async Task TryAutoRecoverAsync(Guid tunnelId, CancellationToken cancellationToken = default)
+    {
+        await using var gate = await operationLock.AcquireAsync($"tunnel:{tunnelId}", cancellationToken);
+        if (_processes.TryGetValue(tunnelId, out var existing) && !existing.Process.HasExited) return;
+
+        var circuit = _circuitBreakers.GetOrAdd(tunnelId, _ => new TunnelCircuitBreakerState());
+        if (circuit.IsTripped)
+        {
+            logger.LogInformation("隧道 {TunnelId} 熔断保护已开启，跳过自动恢复", tunnelId);
+            return;
+        }
+
+        if (circuit.NextRetryTime.HasValue && DateTimeOffset.UtcNow < circuit.NextRetryTime.Value)
+        {
+            return;
+        }
+
+        await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var tunnel = await db.Tunnels.Include(x => x.ProviderAccount).SingleOrDefaultAsync(x => x.Id == tunnelId, cancellationToken);
+        if (tunnel is null || tunnel.DesiredState != TunnelDesiredState.Running || tunnel.DeletedAt is not null) return;
+        if (!tunnel.ProviderAccount.Enabled || tunnel.RemoteState is TunnelRemoteState.RemoteMissing or TunnelRemoteState.Deleted) return;
+
+        if (circuit.RequiresRemoteKick || tunnel.ProviderAccount.ProviderType == ProviderType.MeFrp)
+        {
+            try
+            {
+                logger.LogInformation("隧道 {TunnelId} 恢复前向远端发送强制下线并解除禁用...", tunnelId);
+                var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
+                var credentials = credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id };
+                await provider.KickTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, tunnel.RemoteId, cancellationToken);
+                await provider.SetTunnelDisabledAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, tunnel.RemoteId, false, cancellationToken);
+                circuit.RequiresRemoteKick = false;
+                await Task.Delay(2000, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "隧道 {TunnelId} 恢复前强制下线失败，继续尝试启动", tunnelId);
+            }
+        }
+
+        try
+        {
+            await StartCoreAsync(tunnelId, isAutoRetry: true, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "隧道 {TunnelId} 自动恢复启动失败", tunnelId);
+        }
+    }
+
+    public async Task CheckAndRecoverTunnelsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+            var candidates = await db.Tunnels
+                .AsNoTracking()
+                .Where(x => x.DesiredState == TunnelDesiredState.Running
+                    && x.RuntimeState == TunnelRuntimeState.Failed
+                    && x.DeletedAt == null
+                    && x.ProviderAccount.Enabled)
+                .Select(x => x.Id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var tunnelId in candidates)
+            {
+                if (_circuitBreakers.TryGetValue(tunnelId, out var circuit))
+                {
+                    if (circuit.IsTripped) continue;
+                    if (circuit.NextRetryTime.HasValue && DateTimeOffset.UtcNow < circuit.NextRetryTime.Value) continue;
+                }
+
+                await TryAutoRecoverAsync(tunnelId, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "巡检自动恢复隧道发生异常");
+        }
+    }
+
+    private async Task StartCoreAsync(Guid tunnelId, bool isAutoRetry, CancellationToken cancellationToken)
     {
         await using var gate = await operationLock.AcquireAsync($"tunnel:{tunnelId}", cancellationToken);
         if (_processes.TryGetValue(tunnelId, out var existing) && !existing.Process.HasExited) return;
@@ -121,11 +227,12 @@ public sealed class TunnelProcessSupervisor(
         }
 
         managed.Completion = MonitorAsync(tunnelId, managed);
-        logger.LogInformation("隧道 {TunnelId} 已启动，PID {ProcessId}", tunnelId, process.Id);
+        logger.LogInformation("隧道 {TunnelId} 已启动，PID {ProcessId}{Retry}", tunnelId, process.Id, isAutoRetry ? " (自动重试)" : string.Empty);
     }
 
     public async Task StopAsync(Guid tunnelId, string reason, CancellationToken cancellationToken = default)
     {
+        ResetCircuitBreaker(tunnelId);
         await using var gate = await operationLock.AcquireAsync($"tunnel:{tunnelId}", cancellationToken);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var tunnel = await db.Tunnels.SingleOrDefaultAsync(x => x.Id == tunnelId, cancellationToken)
@@ -214,18 +321,36 @@ public sealed class TunnelProcessSupervisor(
         var channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
         logBuffer.Start(managed.RunId);
         var writerTask = WriteLogAsync(managed, channel.Reader);
-        var stdout = PumpAsync(managed.Process.StandardOutput, "OUT", channel.Writer, managed.SensitiveValues);
-        var stderr = PumpAsync(managed.Process.StandardError, "ERR", channel.Writer, managed.SensitiveValues);
+        var stdout = PumpAsync(managed, managed.Process.StandardOutput, "OUT", channel.Writer);
+        var stderr = PumpAsync(managed, managed.Process.StandardError, "ERR", channel.Writer);
+
+        using var watchdogCts = new CancellationTokenSource();
+        var watchdogTask = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), watchdogCts.Token);
+                if (!managed.HasConnected && !managed.StopRequested && managed.LastErrorLine != null && !managed.Process.HasExited)
+                {
+                    logger.LogWarning("隧道 {TunnelId} 在 30 秒内未成功建立连接且检测到错误，强制终止进程", tunnelId);
+                    managed.Process.Kill(true);
+                }
+            }
+            catch (OperationCanceledException) { }
+        });
+
         int? exitCode = null;
         try
         {
             await managed.Process.WaitForExitAsync();
             exitCode = managed.Process.ExitCode;
+            watchdogCts.Cancel();
             await Task.WhenAll(stdout, stderr);
         }
         catch (Exception ex) { logger.LogWarning(ex, "监控隧道 {TunnelId} 的进程失败", tunnelId); }
         finally
         {
+            watchdogCts.Cancel();
             channel.Writer.TryComplete();
             try
             {
@@ -239,32 +364,187 @@ public sealed class TunnelProcessSupervisor(
             }
         }
 
+        var uptime = DateTimeOffset.UtcNow - managed.StartedAt;
+        var circuit = _circuitBreakers.GetOrAdd(tunnelId, _ => new TunnelCircuitBreakerState());
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
         var run = await db.TunnelRuns.SingleOrDefaultAsync(x => x.Id == managed.RunId);
         var tunnel = await db.Tunnels.SingleOrDefaultAsync(x => x.Id == tunnelId);
-        if (run is not null)
+
+        if (managed.StopRequested)
         {
-            run.EndedAt = DateTimeOffset.UtcNow;
-            run.ExitCode = exitCode;
-            run.StopRequested = managed.StopRequested;
-            run.Summary = managed.StopRequested ? "已由管理平台停止" : $"CLI 意外退出，退出码 {exitCode?.ToString() ?? "未知"}";
+            ResetCircuitBreaker(tunnelId);
+            if (run is not null)
+            {
+                run.EndedAt = DateTimeOffset.UtcNow;
+                run.ExitCode = exitCode;
+                run.StopRequested = true;
+                run.Summary = "已由管理平台停止";
+            }
+            if (tunnel is not null)
+            {
+                tunnel.RuntimeState = TunnelRuntimeState.Stopped;
+                tunnel.RuntimeMessage = "已由管理平台停止";
+            }
         }
-        if (tunnel is not null)
+        else
         {
-            tunnel.RuntimeState = managed.StopRequested ? TunnelRuntimeState.Stopped : TunnelRuntimeState.Failed;
-            tunnel.RuntimeMessage = run?.Summary;
+            // Process terminated unexpectedly
+            if (managed.HasConnected && uptime >= TimeSpan.FromSeconds(60))
+            {
+                // Previously ran stably for > 60 seconds
+                circuit.ConsecutiveFailures = 0;
+            }
+
+            circuit.ConsecutiveFailures++;
+            circuit.LastFailureTime = DateTimeOffset.UtcNow;
+            if (managed.IsOnlineConflict)
+            {
+                circuit.RequiresRemoteKick = true;
+            }
+
+            if (circuit.ConsecutiveFailures >= 5)
+            {
+                circuit.IsTripped = true;
+                circuit.TripReason = $"连续失败 5 次（{managed.LastErrorLine ?? "CLI 异常退出"}），已触发熔断保护暂停自动重试。";
+                if (run is not null)
+                {
+                    run.EndedAt = DateTimeOffset.UtcNow;
+                    run.ExitCode = exitCode;
+                    run.StopRequested = false;
+                    run.Summary = circuit.TripReason;
+                }
+                if (tunnel is not null)
+                {
+                    tunnel.RuntimeState = TunnelRuntimeState.Failed;
+                    tunnel.RuntimeMessage = circuit.TripReason;
+                }
+            }
+            else
+            {
+                var backoffSeconds = circuit.ConsecutiveFailures switch
+                {
+                    1 => 5,
+                    2 => 15,
+                    3 => 30,
+                    4 => 60,
+                    _ => 120
+                };
+                circuit.NextRetryTime = DateTimeOffset.UtcNow.AddSeconds(backoffSeconds);
+                var retryMsg = $"运行异常: {managed.LastErrorLine ?? $"CLI 退出码 {exitCode?.ToString() ?? "未知"}"}。将在 {backoffSeconds} 秒后第 {circuit.ConsecutiveFailures} 次重试。";
+
+                if (run is not null)
+                {
+                    run.EndedAt = DateTimeOffset.UtcNow;
+                    run.ExitCode = exitCode;
+                    run.StopRequested = false;
+                    run.Summary = retryMsg;
+                }
+                if (tunnel is not null)
+                {
+                    tunnel.RuntimeState = TunnelRuntimeState.Failed;
+                    tunnel.RuntimeMessage = retryMsg;
+                }
+
+                _ = ScheduleAutoRecoveryAsync(tunnelId, TimeSpan.FromSeconds(backoffSeconds));
+            }
         }
+
         await db.SaveChangesAsync();
     }
 
-    private static async Task PumpAsync(StreamReader reader, string stream, ChannelWriter<string> writer, IReadOnlyList<string> sensitiveValues)
+    private async Task ScheduleAutoRecoveryAsync(Guid tunnelId, TimeSpan delay)
     {
-        while (await reader.ReadLineAsync() is { } line)
+        try
         {
-            foreach (var secret in sensitiveValues) line = line.Replace(secret, "***", StringComparison.Ordinal);
+            await Task.Delay(delay);
+            await TryAutoRecoverAsync(tunnelId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "隧道 {TunnelId} 自动恢复触发异常", tunnelId);
+        }
+    }
+
+    private static async Task PumpAsync(ManagedProcess managed, StreamReader reader, string stream, ChannelWriter<string> writer)
+    {
+        while (await reader.ReadLineAsync() is { } rawLine)
+        {
+            var line = rawLine;
+            foreach (var secret in managed.SensitiveValues) line = line.Replace(secret, "***", StringComparison.Ordinal);
             line = ProcessLogFormatter.RemoveTerminalSequences(line);
+
+            InspectLine(managed, line);
+
             await writer.WriteAsync($"{DateTimeOffset.Now:O} [{stream}] {line}");
         }
+    }
+
+    private static void InspectLine(ManagedProcess managed, string line)
+    {
+        if (line.Contains("start proxy success", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("login to server success", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("proxy added", StringComparison.OrdinalIgnoreCase))
+        {
+            managed.HasConnected = true;
+            return;
+        }
+
+        if (line.Contains("隧道当前在线", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("API 错误: 隧道当前在线", StringComparison.OrdinalIgnoreCase))
+        {
+            managed.IsOnlineConflict = true;
+            managed.LastErrorLine = "远端隧道当前在线，存在残留会话";
+            TriggerProcessKill(managed);
+            return;
+        }
+
+        if (line.Contains("获取隧道", StringComparison.OrdinalIgnoreCase) && line.Contains("配置失败", StringComparison.OrdinalIgnoreCase))
+        {
+            managed.LastErrorLine = "获取隧道配置失败";
+            TriggerProcessKill(managed);
+            return;
+        }
+
+        if (line.Contains("请使用“生成启动配置”", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("请使用生成启动配置", StringComparison.OrdinalIgnoreCase))
+        {
+            managed.LastErrorLine = "提示需在控制台生成启动配置";
+            TriggerProcessKill(managed);
+            return;
+        }
+
+        if (line.Contains("authorization failed", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("token is not valid", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("token invalid", StringComparison.OrdinalIgnoreCase))
+        {
+            managed.LastErrorLine = "FRP 认证失败，请检查密钥";
+            TriggerProcessKill(managed);
+            return;
+        }
+
+        if (line.Contains("ERR", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+            line.Contains("failed", StringComparison.OrdinalIgnoreCase))
+        {
+            managed.LastErrorLine ??= line;
+        }
+    }
+
+    private static void TriggerProcessKill(ManagedProcess managed)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500);
+                if (!managed.Process.HasExited)
+                {
+                    managed.Process.Kill(true);
+                }
+            }
+            catch { }
+        });
     }
 
     private async Task WriteLogAsync(ManagedProcess managed, ChannelReader<string> reader)
@@ -284,13 +564,45 @@ public sealed class TunnelProcessSupervisor(
         try
         {
             using var process = Process.GetProcessById(pid);
-            var actualStart = process.StartTime.ToUniversalTime();
-            var actualPath = process.MainModule?.FileName;
-            if (Math.Abs((actualStart - startedAt.UtcDateTime).TotalSeconds) <= 2 &&
-                actualPath is not null && Path.GetFullPath(actualPath).Equals(Path.GetFullPath(run.ExecutablePath), StringComparison.OrdinalIgnoreCase))
+            if (process.HasExited) return;
+
+            var targetName = Path.GetFileNameWithoutExtension(run.ExecutablePath);
+            bool isMatch = false;
+
+            try
+            {
+                var actualPath = process.MainModule?.FileName;
+                if (actualPath is not null && Path.GetFullPath(actualPath).Equals(Path.GetFullPath(run.ExecutablePath), StringComparison.OrdinalIgnoreCase))
+                {
+                    isMatch = true;
+                }
+            }
+            catch
+            {
+                // In Linux / Docker containers, accessing MainModule may throw Win32Exception
+            }
+
+            if (!isMatch && string.Equals(process.ProcessName, targetName, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var actualStart = process.StartTime.ToUniversalTime();
+                    if (Math.Abs((actualStart - startedAt.UtcDateTime).TotalSeconds) <= 15)
+                    {
+                        isMatch = true;
+                    }
+                }
+                catch
+                {
+                    // If process name matches inside a container where start time is inaccessible
+                    isMatch = true;
+                }
+            }
+
+            if (isMatch)
             {
                 process.Kill(true);
-                process.WaitForExit(5_000);
+                process.WaitForExit(3_000);
             }
         }
         catch { }
@@ -329,6 +641,7 @@ public sealed class TunnelProcessSupervisor(
             ? "linux"
             : "unsupported";
     }
+
     public static string CurrentArchitecture() => RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant() switch
     {
         "x64" => "amd64",
@@ -344,6 +657,10 @@ public sealed class TunnelProcessSupervisor(
         public Guid RunId { get; } = runId;
         public string LogPath { get; } = logPath;
         public IReadOnlyList<string> SensitiveValues { get; } = sensitiveValues;
+        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
+        public bool HasConnected { get; set; }
+        public bool IsOnlineConflict { get; set; }
+        public string? LastErrorLine { get; set; }
         public bool StopRequested { get; set; }
         public Task Completion { get; set; } = Task.CompletedTask;
     }

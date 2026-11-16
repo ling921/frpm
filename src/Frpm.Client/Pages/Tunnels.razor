@@ -149,7 +149,7 @@ else
                     </MudTooltip>
                 </MudTd>
                 <MudTd DataLabel="操作" Style="text-align:right">
-                    <TunnelActionButtons Tunnel="context" Start="StartAsync" Stop="StopAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
+                    <TunnelActionButtons Tunnel="context" Start="StartAsync" Stop="StopAsync" Kick="KickAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -198,7 +198,7 @@ else
                         <MudText Typo="Typo.caption">远端：@RemoteText(tunnel.RemoteState)</MudText>
                     </MudCardContent>
                     <MudCardActions>
-                        <TunnelActionButtons Tunnel="tunnel" Start="StartAsync" Stop="StopAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
+                        <TunnelActionButtons Tunnel="tunnel" Start="StartAsync" Stop="StopAsync" Kick="KickAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
                     </MudCardActions>
                 </MudCard>
             }

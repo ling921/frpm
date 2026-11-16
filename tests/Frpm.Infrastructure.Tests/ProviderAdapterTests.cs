@@ -74,7 +74,8 @@ public sealed class ProviderAdapterTests
         Assert.Equal(3, page.TotalPages);
         var tunnel = Assert.Single(page.Items);
         Assert.Equal("20", tunnel.RemoteId);
-        Assert.Equal("abc123", tunnel.Name);
+        Assert.Equal("web", tunnel.Name);
+        Assert.Equal("web", tunnel.Remark);
         Assert.Equal("demo.example.com", tunnel.RemoteAddress);
         Assert.Contains("edge.example.test", tunnel.PayloadJson);
     }

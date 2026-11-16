@@ -31,7 +31,7 @@ public sealed class MeFrpLaunchTests
                 workingDir,
                 CancellationToken.None);
 
-            Assert.Equal(["-t", "frp-token-12345", "-p", "197510"], spec.Arguments);
+            Assert.Equal(["-t", "frp-token-12345", "-p", "197510", "-n"], spec.Arguments);
             Assert.Contains("frp-token-12345", spec.SensitiveValues);
             Assert.Contains("api-access-token", spec.SensitiveValues);
             Assert.Equal("https://api.mefrp.com/api/auth/user/frpToken", captured?.RequestUri?.ToString());
@@ -107,6 +107,90 @@ useCompression = true
         Assert.Contains("alreadyQuoted = \"true\"", fixedToml);
         Assert.Contains("useEncryption = false", fixedToml);
         Assert.Contains("useCompression = true", fixedToml);
+    }
+
+    [Fact]
+    public async Task KickTunnelAsync_PostsToKickEndpoint()
+    {
+        HttpRequestMessage? captured = null;
+        var provider = new MeFrpProvider(new FakeHttpClientFactory(request =>
+        {
+            captured = request;
+            return Json("""{"code":200,"data":null,"message":"ok"}""");
+        }));
+
+        await provider.KickTunnelAsync(
+            "https://api.mefrp.com/api",
+            new ProviderCredentials("api-access-token"),
+            "197510",
+            CancellationToken.None);
+
+        Assert.NotNull(captured);
+        Assert.Equal("https://api.mefrp.com/api/auth/proxy/kick", captured.RequestUri?.ToString());
+        Assert.Equal(HttpMethod.Post, captured.Method);
+        var body = await captured.Content!.ReadAsStringAsync();
+        Assert.Contains("\"proxyId\":197510", body);
+    }
+
+    [Fact]
+    public async Task SetTunnelDisabledAsync_PostsToToggleEndpoint()
+    {
+        HttpRequestMessage? captured = null;
+        var provider = new MeFrpProvider(new FakeHttpClientFactory(request =>
+        {
+            captured = request;
+            return Json("""{"code":200,"data":null,"message":"ok"}""");
+        }));
+
+        await provider.SetTunnelDisabledAsync(
+            "https://api.mefrp.com/api",
+            new ProviderCredentials("api-access-token"),
+            "197510",
+            isDisabled: false,
+            CancellationToken.None);
+
+        Assert.NotNull(captured);
+        Assert.Equal("https://api.mefrp.com/api/auth/proxy/toggle", captured.RequestUri?.ToString());
+        Assert.Equal(HttpMethod.Post, captured.Method);
+        var body = await captured.Content!.ReadAsStringAsync();
+        Assert.Contains("\"proxyId\":197510", body);
+        Assert.Contains("\"isDisabled\":false", body);
+    }
+
+    [Fact]
+    public async Task UpdateTunnelAsync_IncludesProxyIdInBody()
+    {
+        HttpRequestMessage? captured = null;
+        var provider = new MeFrpProvider(new FakeHttpClientFactory(request =>
+        {
+            captured = request;
+            return Json("""{"code":200,"data":null,"message":"ok"}""");
+        }));
+
+        var tunnel = new ProviderTunnel("197510", "home2", "remark", "http", "332", "HK", "127.0.0.1", 8080, "csors.com", "inactive", "{}");
+        var requestObj = new SaveTunnelRequest
+        {
+            Name = "home2-renamed",
+            Type = "http",
+            NodeId = "332",
+            LocalAddress = "127.0.0.1",
+            LocalPort = 8080,
+            CustomDomain = "csors.com",
+            Remark = "remark"
+        };
+        await provider.UpdateTunnelAsync(
+            "https://api.mefrp.com/api",
+            new ProviderCredentials("api-access-token"),
+            tunnel,
+            requestObj,
+            CancellationToken.None);
+
+        Assert.NotNull(captured);
+        Assert.Equal("https://api.mefrp.com/api/auth/proxy/update", captured.RequestUri?.ToString());
+        Assert.Equal(HttpMethod.Post, captured.Method);
+        var body = await captured.Content!.ReadAsStringAsync();
+        Assert.Contains("\"proxyId\":197510", body);
+        Assert.Contains("\"proxyName\":\"home2-renamed\"", body);
     }
 
     private static HttpResponseMessage Json(string content) =>

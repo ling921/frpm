@@ -50,6 +50,12 @@ public interface ITunnelService
     Task StopAsync([Path] Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 强制下线并重置指定隧道（针对支持的供应商）。
+    /// </summary>
+    [Post("{id}/kick")]
+    Task KickAsync([Path] Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 从 FRPM 所在机器测试隧道的本地服务端点。
     /// </summary>
     [Post("test-local-endpoint")]

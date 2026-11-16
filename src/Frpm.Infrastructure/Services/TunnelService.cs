@@ -45,10 +45,21 @@ public sealed class TunnelService(
         var tunnels = await db.Tunnels.AsNoTracking().Include(x => x.ProviderAccount).Where(x => x.DeletedAt == null)
             .OrderBy(x => x.ProviderAccount.DisplayName).ThenBy(x => x.Name)
             .ToListAsync(cancellationToken);
-        return tunnels.Select(tunnel => mapper.Map<TunnelModel>(tunnel) with
+        return tunnels.Select(tunnel =>
         {
-            ProviderDomain = ReadPayloadValue(tunnel.ProviderPayloadJson, "domain"),
-            NodeAddress = ReadPayloadValue(tunnel.ProviderPayloadJson, "node_address")
+            var model = mapper.Map<TunnelModel>(tunnel);
+            var displayName = tunnel.ProviderAccount?.ProviderType == ProviderType.LoliaFrp &&
+                              !string.IsNullOrWhiteSpace(tunnel.Remark) &&
+                              LoliaFrpProvider.IsAlphanumericIdentifier(tunnel.Name)
+                ? tunnel.Remark
+                : model.Name;
+
+            return model with
+            {
+                Name = displayName,
+                ProviderDomain = ReadPayloadValue(tunnel.ProviderPayloadJson, "domain"),
+                NodeAddress = ReadPayloadValue(tunnel.ProviderPayloadJson, "node_address")
+            };
         }).ToList();
     }
 
@@ -91,49 +102,122 @@ public sealed class TunnelService(
             throw new InvalidOperationException("创建隧道时必须选择节点。");
         }
 
-        ProviderTunnel remote;
-        Tunnel entity;
         if (request.TunnelId is { } tunnelId)
         {
-            entity = await db.Tunnels.SingleOrDefaultAsync(x => x.Id == tunnelId && x.ProviderAccountId == account.Id, cancellationToken)
+            var entity = await db.Tunnels.SingleOrDefaultAsync(x => x.Id == tunnelId && x.ProviderAccountId == account.Id, cancellationToken)
                 ?? throw new KeyNotFoundException("隧道不存在。");
             request.NodeId = entity.NodeId;
-            remote = await provider.UpdateTunnelAsync(account.ApiBaseUrl, credentials, ToProvider(entity), request, cancellationToken);
+
+            var wasRunning = entity.RuntimeState == TunnelRuntimeState.Running;
+            if (wasRunning)
+            {
+                await supervisor.StopAsync(entity.Id, "保存前暂时停止隧道。", cancellationToken);
+            }
+            if (account.ProviderType == ProviderType.MeFrp)
+            {
+                try
+                {
+                    await provider.KickTunnelAsync(account.ApiBaseUrl, credentials, entity.RemoteId, cancellationToken);
+                    await Task.Delay(500, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning(ex, "更新前下线远端会话失败，将继续更新。");
+                }
+            }
+
+            var remote = await provider.UpdateTunnelAsync(account.ApiBaseUrl, credentials, ToProvider(entity), request, cancellationToken);
+
+            if (wasRunning)
+            {
+                try
+                {
+                    await supervisor.StartAsync(entity.Id, cancellationToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning(ex, "更新后自动重启隧道失败。");
+                }
+            }
+
+            remote = await EnrichNodeAsync(provider, account.ApiBaseUrl, credentials, remote, cancellationToken);
+            Apply(entity, remote);
+            await db.SaveChangesAsync(cancellationToken);
+            entity.ProviderAccount = account;
+            return mapper.Map<TunnelModel>(entity);
         }
         else
         {
-            remote = await provider.CreateTunnelAsync(account.ApiBaseUrl, credentials, request, cancellationToken);
-            entity = await db.Tunnels.SingleOrDefaultAsync(x => x.ProviderAccountId == account.Id && x.RemoteId == remote.RemoteId, cancellationToken)
-                ?? new Tunnel { ProviderAccountId = account.Id, RemoteId = remote.RemoteId, Name = remote.Name, Type = remote.Type };
-            if (db.Entry(entity).State == EntityState.Detached) db.Tunnels.Add(entity);
+            var remotes = await provider.CreateTunnelsAsync(account.ApiBaseUrl, credentials, request, cancellationToken);
+            Tunnel? primaryEntity = null;
+            foreach (var remoteTunnel in remotes)
+            {
+                var enrichedRemote = await EnrichNodeAsync(provider, account.ApiBaseUrl, credentials, remoteTunnel, cancellationToken);
+                var curEntity = await db.Tunnels.SingleOrDefaultAsync(x => x.ProviderAccountId == account.Id && x.RemoteId == enrichedRemote.RemoteId, cancellationToken)
+                    ?? new Tunnel { ProviderAccountId = account.Id, RemoteId = enrichedRemote.RemoteId, Name = enrichedRemote.Name, Type = enrichedRemote.Type };
+                if (db.Entry(curEntity).State == EntityState.Detached) db.Tunnels.Add(curEntity);
+                Apply(curEntity, enrichedRemote);
+                primaryEntity ??= curEntity;
+            }
+            await db.SaveChangesAsync(cancellationToken);
+            if (primaryEntity is not null)
+            {
+                primaryEntity.ProviderAccount = account;
+                return mapper.Map<TunnelModel>(primaryEntity);
+            }
+            throw new InvalidOperationException("供应商未返回创建的隧道。");
         }
-        remote = await EnrichNodeAsync(provider, account.ApiBaseUrl, credentials, remote, cancellationToken);
-        Apply(entity, remote);
-        await db.SaveChangesAsync(cancellationToken);
-        entity.ProviderAccount = account;
-        return mapper.Map<TunnelModel>(entity);
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var gate = await operationLock.AcquireAsync($"tunnel:{id}:delete", cancellationToken);
-        await supervisor.StopAsync(id, "删除隧道。", cancellationToken);
+        try
+        {
+            await supervisor.StopAsync(id, "删除隧道。", cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "停止待删除隧道 {TunnelId} 的进程时出现异常，将继续清理记录。", id);
+        }
+
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-        var tunnel = await db.Tunnels.Include(x => x.ProviderAccount).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
-            ?? throw new KeyNotFoundException("隧道不存在。");
-        if (tunnel.RemoteState != TunnelRemoteState.RemoteMissing)
+        var tunnel = await db.Tunnels.Include(x => x.ProviderAccount).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (tunnel is null)
+        {
+            logger.LogInformation("隧道 {TunnelId} 在本地已不存在，无需重复删除。", id);
+            return;
+        }
+        if (tunnel.DeletedAt is not null)
+        {
+            logger.LogInformation("隧道 {TunnelId} 在本地已标记删除，无需重复删除。", id);
+            return;
+        }
+
+        if (tunnel.ProviderAccount is not null && tunnel.RemoteState != TunnelRemoteState.RemoteMissing)
         {
             try
             {
                 var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
-                await provider.DeleteTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id }, ToProvider(tunnel), cancellationToken);
+                var credentials = credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id };
+                await provider.DeleteTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, ToProvider(tunnel), cancellationToken);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
             {
                 logger.LogWarning(ex, "远端隧道 {TunnelId} ({RemoteId}) 删除失败，仍将清理本地记录。", tunnel.Id, tunnel.RemoteId);
             }
         }
         tunnel.RemoteState = TunnelRemoteState.Deleted;
+        tunnel.DesiredState = TunnelDesiredState.Stopped;
+        tunnel.RuntimeState = TunnelRuntimeState.Stopped;
         tunnel.DeletedAt = DateTimeOffset.UtcNow;
         tunnel.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
@@ -141,6 +225,22 @@ public sealed class TunnelService(
 
     public Task StartAsync(Guid id, CancellationToken cancellationToken = default) => supervisor.StartAsync(id, cancellationToken);
     public Task StopAsync(Guid id, CancellationToken cancellationToken = default) => supervisor.StopAsync(id, "管理员手动停止。", cancellationToken);
+
+    public async Task KickAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var gate = await operationLock.AcquireAsync($"tunnel:{id}", cancellationToken);
+        await supervisor.StopAsync(id, "管理员强制下线。", cancellationToken);
+        await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var tunnel = await db.Tunnels.Include(x => x.ProviderAccount).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
+            ?? throw new KeyNotFoundException("隧道不存在。");
+        var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
+        var credentials = credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id };
+        await provider.KickTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, tunnel.RemoteId, cancellationToken);
+        await provider.SetTunnelDisabledAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, tunnel.RemoteId, false, cancellationToken);
+        tunnel.RemoteState = TunnelRemoteState.Inactive;
+        tunnel.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+    }
 
     public Task<LocalEndpointTestResult> TestLocalEndpointAsync(LocalEndpointTestRequest request, CancellationToken cancellationToken = default) =>
         LocalEndpointProbe.TestAsync(request, cancellationToken);
@@ -223,7 +323,7 @@ public sealed class TunnelService(
     private static void NormalizeAndValidateRequest(SaveTunnelRequest request, ProviderType providerType)
     {
         request.Type = (request.Type ?? "").Trim().ToLowerInvariant();
-        if (!TunnelInputRules.TypesFor(providerType).Contains(request.Type, StringComparer.OrdinalIgnoreCase))
+        if (!TunnelInputRules.TypesFor(providerType, isEditing: request.TunnelId is not null).Contains(request.Type, StringComparer.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException("当前供应商不支持所选隧道类型。");
         }
