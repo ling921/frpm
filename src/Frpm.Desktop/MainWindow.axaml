@@ -41,6 +41,14 @@
     <Style Selector="TextBlock.metricWarning">
       <Setter Property="Foreground" Value="#8A5A00" />
     </Style>
+    <Style Selector="Border.batchBar">
+      <Setter Property="Background" Value="{DynamicResource FrpmSubtleFillBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource FrpmDividerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
     <Style Selector="Border.listRow">
       <Setter Property="BorderBrush" Value="{DynamicResource FrpmDividerBrush}" />
       <Setter Property="BorderThickness" Value="0,0,0,1" />

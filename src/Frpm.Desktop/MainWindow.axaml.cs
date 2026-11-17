@@ -28,6 +28,7 @@ internal sealed partial class MainWindow : Window
     private string? _backTarget;
     private readonly Stack<string> _navigationHistory = new();
     private string _tunnelFilter = string.Empty;
+    private readonly HashSet<Guid> _selectedTunnelIds = [];
     public bool TrayAvailable { get; set; }
     public bool AllowClose { get; set; }
 

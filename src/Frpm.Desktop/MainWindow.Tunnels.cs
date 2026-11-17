@@ -1,10 +1,12 @@
 using System.Text.Json;
 using System.Security.Cryptography;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Frpm.Abstractions.Models;
 using Frpm.Domain.Enums;
+using FluentAvalonia.UI.Controls;
 
 namespace Frpm.Desktop;
 
@@ -16,16 +18,95 @@ internal sealed partial class MainWindow
         var accounts = await _workspace.GetAccountsAsync(_lifetime.Token);
         var runs = await _workspace.GetRunsAsync(ct: _lifetime.Token);
         var tunnelIdsWithRuns = runs.Select(run => run.TunnelId).ToHashSet();
+        var validIds = tunnels.Select(t => t.Id).ToHashSet();
+        _selectedTunnelIds.RemoveWhere(id => !validIds.Contains(id));
+
         BeginPage("隧道", "配置本地映射、启动本机 frpc，或查看实时日志");
         var filter = Input(_tunnelFilter, "搜索隧道、账号、节点或映射地址");
+        var batchBar = new Border();
+        batchBar.Classes.Add("batchBar");
         var list = new StackPanel { Spacing = 8 };
         void UpdateList()
         {
             list.Children.Clear();
             var query = _tunnelFilter.Trim();
-            foreach (var tunnel in tunnels.Where(t => query.Length == 0 ||
-                $"{t.Name} {t.ProviderAccountName} {t.NodeName} {t.LocalAddress} {t.RemoteAddress} {t.Remark}".Contains(query, StringComparison.OrdinalIgnoreCase)))
+            var filtered = tunnels.Where(t => query.Length == 0 ||
+                $"{t.Name} {t.ProviderAccountName} {t.NodeName} {t.LocalAddress} {t.RemoteAddress} {t.Remark}".Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (filtered.Count == 0)
             {
+                batchBar.IsVisible = false;
+            }
+            else
+            {
+                batchBar.IsVisible = true;
+                var batchGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+                var selectedInFiltered = filtered.Count(t => _selectedTunnelIds.Contains(t.Id));
+
+                var selectAllCheck = new CheckBox
+                {
+                    IsChecked = selectedInFiltered == filtered.Count ? true : selectedInFiltered > 0 ? null : false,
+                    Content = _selectedTunnelIds.Count > 0 ? $"已选中 {_selectedTunnelIds.Count} 条隧道" : $"全选 (共 {filtered.Count} 条)",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 16, 0)
+                };
+
+                var updatingSelectAll = false;
+                selectAllCheck.IsCheckedChanged += (_, _) =>
+                {
+                    if (updatingSelectAll) return;
+                    updatingSelectAll = true;
+                    if (selectAllCheck.IsChecked == true)
+                    {
+                        foreach (var t in filtered) _selectedTunnelIds.Add(t.Id);
+                    }
+                    else
+                    {
+                        foreach (var t in filtered) _selectedTunnelIds.Remove(t.Id);
+                    }
+                    UpdateList();
+                };
+                batchGrid.Children.Add(selectAllCheck);
+
+                var batchButtons = new List<Control>();
+                if (_selectedTunnelIds.Count > 0)
+                {
+                    var selectedTargets = tunnels.Where(t => _selectedTunnelIds.Contains(t.Id)).ToList();
+                    batchButtons.Add(ActionButton("批量启动", () => BatchStartAsync(selectedTargets), primary: true));
+                    batchButtons.Add(ActionButton("批量停止", () => BatchStopAsync(selectedTargets)));
+                    batchButtons.Add(ActionButton("批量强制下线", () => BatchKickAsync(selectedTargets)));
+                    batchButtons.Add(ActionButton("批量删除", () => BatchDeleteAsync(selectedTargets)));
+                    var clearBtn = new Button { Content = "取消选择", Margin = new Thickness(0, 0, 8, 4) };
+                    clearBtn.Click += (_, _) =>
+                    {
+                        _selectedTunnelIds.Clear();
+                        UpdateList();
+                    };
+                    batchButtons.Add(clearBtn);
+                }
+                var batchWrap = Actions(batchButtons.ToArray());
+                Grid.SetColumn(batchWrap, 1);
+                batchGrid.Children.Add(batchWrap);
+                batchBar.Child = batchGrid;
+            }
+
+            foreach (var tunnel in filtered)
+            {
+                var rowCheck = new CheckBox
+                {
+                    IsChecked = _selectedTunnelIds.Contains(tunnel.Id),
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 4, 12, 0)
+                };
+                rowCheck.IsCheckedChanged += (_, _) =>
+                {
+                    if (rowCheck.IsChecked == true)
+                        _selectedTunnelIds.Add(tunnel.Id);
+                    else
+                        _selectedTunnelIds.Remove(tunnel.Id);
+                    UpdateList();
+                };
+
                 var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
                 heading.Children.Add(Text(tunnel.Name, size: 18));
                 var pill = StatusPill(RuntimeText(tunnel.RuntimeState), tunnel.RuntimeState);
@@ -45,6 +126,14 @@ internal sealed partial class MainWindow
                     actions.Add(ActionButton("停止", () => _workspace.StopTunnelAsync(tunnel.Id, _lifetime.Token)));
                 else if (tunnel.RuntimeState is not (TunnelRuntimeState.Starting or TunnelRuntimeState.Stopping))
                     actions.Add(ActionButton("启动", () => _workspace.StartTunnelAsync(tunnel.Id, _lifetime.Token), primary: true));
+                if (tunnel.RuntimeState is TunnelRuntimeState.Running or TunnelRuntimeState.Failed)
+                {
+                    actions.Add(ActionButton("强制下线", async () =>
+                    {
+                        if (await ConfirmAsync("强制下线", $"将重置供应商端的“{tunnel.Name}”残留会话并停止本地进程，是否继续？"))
+                            await _workspace.KickTunnelAsync(tunnel.Id, _lifetime.Token);
+                    }));
+                }
                 actions.Add(ActionButton("编辑", () => EditTunnelAsync(tunnel)));
                 if (tunnel.LocalPort is not null)
                     actions.Add(ActionButton("测试本地服务", async () =>
@@ -60,7 +149,13 @@ internal sealed partial class MainWindow
                         await _workspace.DeleteTunnelAsync(tunnel.Id, _lifetime.Token);
                 }));
                 rowContent.Children.Add(Actions(actions.ToArray()));
-                var row = new Border { Child = rowContent };
+
+                var rowLayout = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+                rowLayout.Children.Add(rowCheck);
+                Grid.SetColumn(rowContent, 1);
+                rowLayout.Children.Add(rowContent);
+
+                var row = new Border { Child = rowLayout };
                 row.Classes.Add("listRow");
                 list.Children.Add(row);
             }
@@ -79,8 +174,72 @@ internal sealed partial class MainWindow
             pageActions.Add(ActionButton("同步供应商", () => _workspace.SyncAllAsync(_lifetime.Token)));
         PageContent.Children.Add(Actions(pageActions.ToArray()));
         PageContent.Children.Add(filter);
+        PageContent.Children.Add(batchBar);
         PageContent.Children.Add(list);
         UpdateList();
+    }
+
+    private async Task BatchStartAsync(IReadOnlyList<TunnelModel> targets)
+    {
+        var toStart = targets.Where(t => t.RuntimeState is not (TunnelRuntimeState.Running or TunnelRuntimeState.Starting)).ToList();
+        if (toStart.Count == 0)
+        {
+            ShowStatus("所选隧道均已在运行或启动中。", InfoBarSeverity.Informational);
+            return;
+        }
+        await RunActionAsync(async () =>
+        {
+            var result = await _workspace.StartTunnelsAsync(toStart.Select(t => t.Id).ToArray(), _lifetime.Token);
+            await RenderPageAsync();
+            var msg = $"批量启动完成：成功 {result.SuccessCount} 条" + (result.HasErrors ? $"，失败 {result.Errors.Count} 条（{string.Join("；", result.Errors.Take(3))}）" : "。");
+            ShowStatus(msg, result.HasErrors ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
+        }, "");
+    }
+
+    private async Task BatchStopAsync(IReadOnlyList<TunnelModel> targets)
+    {
+        var toStop = targets.Where(t => t.RuntimeState is not (TunnelRuntimeState.Stopped or TunnelRuntimeState.Stopping)).ToList();
+        if (toStop.Count == 0)
+        {
+            ShowStatus("所选隧道均已停止。", InfoBarSeverity.Informational);
+            return;
+        }
+        await RunActionAsync(async () =>
+        {
+            var result = await _workspace.StopTunnelsAsync(toStop.Select(t => t.Id).ToArray(), _lifetime.Token);
+            await RenderPageAsync();
+            var msg = $"批量停止完成：成功 {result.SuccessCount} 条" + (result.HasErrors ? $"，失败 {result.Errors.Count} 条（{string.Join("；", result.Errors.Take(3))}）" : "。");
+            ShowStatus(msg, result.HasErrors ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
+        }, "");
+    }
+
+    private async Task BatchKickAsync(IReadOnlyList<TunnelModel> targets)
+    {
+        if (targets.Count == 0) return;
+        if (!await ConfirmAsync("批量强制下线", $"将对选中的 {targets.Count} 条隧道执行供应商端下线重置，是否继续？"))
+            return;
+        await RunActionAsync(async () =>
+        {
+            var result = await _workspace.KickTunnelsAsync(targets.Select(t => t.Id).ToArray(), _lifetime.Token);
+            await RenderPageAsync();
+            var msg = $"批量强制下线完成：成功 {result.SuccessCount} 条" + (result.HasErrors ? $"，失败 {result.Errors.Count} 条（{string.Join("；", result.Errors.Take(3))}）" : "。");
+            ShowStatus(msg, result.HasErrors ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
+        }, "");
+    }
+
+    private async Task BatchDeleteAsync(IReadOnlyList<TunnelModel> targets)
+    {
+        if (targets.Count == 0) return;
+        if (!await ConfirmAsync("批量删除隧道", $"确定要删除选中的 {targets.Count} 条隧道吗？这会从供应商端停止并永久删除这些隧道，此操作不可撤销。"))
+            return;
+        await RunActionAsync(async () =>
+        {
+            var result = await _workspace.DeleteTunnelsAsync(targets.Select(t => t.Id).ToArray(), _lifetime.Token);
+            _selectedTunnelIds.ExceptWith(targets.Select(t => t.Id));
+            await RenderPageAsync();
+            var msg = $"批量删除完成：成功删除 {result.SuccessCount} 条" + (result.HasErrors ? $"，失败 {result.Errors.Count} 条（{string.Join("；", result.Errors.Take(3))}）" : "。");
+            ShowStatus(msg, result.HasErrors ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
+        }, "");
     }
 
     private static Border StatusPill(string text, TunnelRuntimeState state)
