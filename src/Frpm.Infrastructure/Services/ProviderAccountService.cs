@@ -117,7 +117,8 @@ public sealed class ProviderAccountService(
             account.Id, account.ProviderType, account.DisplayName, account.ApiBaseUrl, account.Enabled,
             account.LastSyncAt, account.LastSyncSucceeded, account.LastSyncMessage,
             account.Tunnels.Count(x => x.DeletedAt is null), providerFactory.Get(account.ProviderType).Capabilities,
-            clientId, hasClientSecret);
+            clientId, hasClientSecret,
+            account.TrafficLimitBytes, account.TrafficUsedBytes, account.BandwidthLimitBytes, account.UserRole);
     }
 
 }

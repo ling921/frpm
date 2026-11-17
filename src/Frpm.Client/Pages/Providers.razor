@@ -87,6 +87,34 @@ else
                             </MudChip>
                         </MudStack>
                         <MudDivider Class="my-3" />
+                        @if (account.TrafficLimitBytes is not null || account.TrafficUsedBytes is not null)
+                        {
+                            var used = account.TrafficUsedBytes ?? 0;
+                            var limit = account.TrafficLimitBytes ?? 0;
+                            var pct = limit > 0 ? Math.Clamp((int)(used * 100 / limit), 0, 100) : 0;
+                            <MudStack Spacing="1" Class="my-2">
+                                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">流量配额</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @FormatBytes(used) / @(limit > 0 ? FormatBytes(limit) : "不限") (@pct%)
+                                    </MudText>
+                                </MudStack>
+                                <MudProgressLinear Value="@pct" Color="@(pct < 60 ? Color.Success : pct < 85 ? Color.Warning : Color.Error)" Size="Size.Small" Style="height: 5px; border-radius: 3px;" />
+                            </MudStack>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(account.UserRole) || account.BandwidthLimitBytes is not null)
+                        {
+                            <MudStack Row Spacing="1" Class="mt-1">
+                                @if (!string.IsNullOrWhiteSpace(account.UserRole))
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Style="height: 18px; font-size: 10px;">@account.UserRole</MudChip>
+                                }
+                                @if (account.BandwidthLimitBytes is not null)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Default" Style="height: 18px; font-size: 10px;">带宽: @FormatBytes(account.BandwidthLimitBytes)/s</MudChip>
+                                }
+                            </MudStack>
+                        }
                         <MudText Typo="Typo.body2" Class="text-truncate">@account.ApiBaseUrl</MudText>
                         <MudText Typo="Typo.caption" Color="@(account.LastSyncSucceeded == false ? Color.Error : Color.Secondary)">
                             @(account.LastSyncAt is null ? "尚未同步" : $"上次同步：{account.LastSyncAt.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss} · {account.LastSyncMessage}")

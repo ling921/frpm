@@ -35,7 +35,19 @@ public sealed record ProviderTunnel(
     int? LocalPort,
     string? RemoteAddress,
     string? ProviderStatus,
-    string PayloadJson);
+    string PayloadJson,
+    long? TodayTrafficInBytes = null,
+    long? TodayTrafficOutBytes = null,
+    long? TotalTrafficBytes = null);
+
+/// <summary>
+/// 供应商账号层级的用量与配额指标。
+/// </summary>
+public sealed record ProviderAccountMetrics(
+    long? TrafficLimitBytes,
+    long? TrafficUsedBytes,
+    long? BandwidthLimitBytes,
+    string? UserRole);
 
 /// <summary>
 /// 供应商隧道的分页结果。
@@ -74,6 +86,14 @@ public interface IFrpProvider
         string apiBaseUrl,
         ProviderCredentials credentials,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 获取供应商账号层级的用量与配额指标（若支持）。
+    /// </summary>
+    Task<ProviderAccountMetrics?> GetAccountMetricsAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        CancellationToken cancellationToken) => Task.FromResult<ProviderAccountMetrics?>(null);
 
     /// <summary>
     /// 获取供应商节点。

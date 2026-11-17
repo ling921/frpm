@@ -254,6 +254,16 @@ public partial class Providers : ComponentBase, IAsyncDisposable
         _editorOpen = true;
     }
 
+    private static string FormatBytes(long? bytes)
+    {
+        if (bytes is null or 0) return "0 B";
+        var b = bytes.Value;
+        if (b < 1024) return $"{b} B";
+        if (b < 1024 * 1024) return $"{(b / 1024.0):F1} KB";
+        if (b < 1024 * 1024 * 1024) return $"{(b / (1024.0 * 1024)):F1} MB";
+        return $"{(b / (1024.0 * 1024 * 1024)):F2} GB";
+    }
+
     private void ResetEditor()
     {
         _request = NewRequest();

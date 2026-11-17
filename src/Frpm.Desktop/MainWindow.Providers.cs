@@ -49,8 +49,14 @@ internal sealed partial class MainWindow
             Grid.SetColumn(statePill, 1);
             heading.Children.Add(statePill);
             var content = Stack(heading,
-                Text($"{account.ProviderType} · {account.TunnelCount} 条隧道", hint: true),
-                Text($"最近同步：{Time(account.LastSyncAt)} · {account.LastSyncMessage ?? "尚未执行"}", hint: true));
+                Text($"{account.ProviderType} · {account.TunnelCount} 条隧道", hint: true));
+            if (account.TrafficLimitBytes is not null || account.TrafficUsedBytes is not null)
+            {
+                var used = account.TrafficUsedBytes ?? 0;
+                var limit = account.TrafficLimitBytes ?? 0;
+                content.Children.Add(Text($"流量配额：{TunnelActionEvaluator.FormatBytes(used)} / {(limit > 0 ? TunnelActionEvaluator.FormatBytes(limit) : "不限")}{(string.IsNullOrWhiteSpace(account.UserRole) ? "" : $" · 角色: {account.UserRole}")}{(account.BandwidthLimitBytes is not null ? $" · 带宽: {TunnelActionEvaluator.FormatBytes(account.BandwidthLimitBytes)}/s" : "")}", hint: true));
+            }
+            content.Children.Add(Text($"最近同步：{Time(account.LastSyncAt)} · {account.LastSyncMessage ?? "尚未执行"}", hint: true));
             var actions = new List<Control> { ActionButton("编辑账号", () => EditAccountAsync(account)) };
             if (account.Enabled)
                 actions.Add(ActionButton("立即同步", () => _workspace.SyncAccountAsync(account.Id, _lifetime.Token), primary: true));
@@ -138,9 +144,18 @@ internal sealed partial class MainWindow
         var nodes = await _workspace.GetNodesAsync(account.Id, _lifetime.Token);
         var body = Stack(Text($"{account.DisplayName} · {nodes.Count} 个节点", size: 18));
         foreach (var node in nodes.OrderByDescending(n => n.Available).ThenBy(n => n.Name))
-            body.Children.Add(Section(Stack(Text($"{node.Name} · {(node.Available ? "可用" : "不可用")}"),
-                Text($"{node.Address} · {node.Region} · {node.Bandwidth}", hint: true),
-                Text($"类型：{node.AllowedTypes ?? "供应商默认"} · 端口：{node.PortRange ?? "供应商默认"}", hint: true))));
+        {
+            var statusText = node.IsOnline ? "🟢 在线" : "🔴 离线";
+            var loadText = node.LoadPercent is not null ? $" · 负载: {node.LoadPercent}%" : "";
+            var vipText = node.IsVip ? " · VIP" : "";
+            var kycText = node.NeedKyc ? " · 需实名" : "";
+            var beianText = node.NeedBeian ? " · 需备案" : "";
+            var ratioText = node.TrafficRatio is not null ? $" · 倍率: {node.TrafficRatio:0.#}x" : "";
+
+            body.Children.Add(Section(Stack(Text($"{node.Name} · {statusText}{loadText}{vipText}{kycText}{beianText}{ratioText}"),
+                Text($"{node.Address ?? "默认地址"} · {node.Region ?? "通用地区"} · {node.Bandwidth ?? "默认带宽"}", hint: true),
+                Text($"类型：{node.AllowedTypes ?? "供应商默认"} · 端口：{node.PortRange ?? "供应商默认"}{(string.IsNullOrWhiteSpace(node.Description) ? "" : $" · {node.Description}")}", hint: true))));
+        }
         await new FormDialog("供应商节点", body, () => Task.CompletedTask, "关闭").ShowDialog<bool>(this);
     }
 }

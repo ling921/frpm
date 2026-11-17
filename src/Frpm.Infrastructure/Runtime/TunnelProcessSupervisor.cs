@@ -75,12 +75,12 @@ public sealed class TunnelProcessSupervisor(
         if (tunnel is null || tunnel.DesiredState != TunnelDesiredState.Running || tunnel.DeletedAt is not null) return;
         if (!tunnel.ProviderAccount.Enabled || tunnel.RemoteState is TunnelRemoteState.RemoteMissing or TunnelRemoteState.Deleted) return;
 
-        if (circuit.RequiresRemoteKick || tunnel.ProviderAccount.ProviderType == ProviderType.MeFrp)
+        var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
+        if (circuit.RequiresRemoteKick || provider.Capabilities.SupportsKick)
         {
             try
             {
                 logger.LogInformation("隧道 {TunnelId} 恢复前向远端发送强制下线并解除禁用...", tunnelId);
-                var provider = providerFactory.Get(tunnel.ProviderAccount.ProviderType);
                 var credentials = credentialProtector.Unprotect(tunnel.ProviderAccount.ProtectedCredentials) with { AccountId = tunnel.ProviderAccount.Id };
                 await provider.KickTunnelAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, tunnel.RemoteId, cancellationToken);
                 await provider.SetTunnelDisabledAsync(tunnel.ProviderAccount.ApiBaseUrl, credentials, tunnel.RemoteId, false, cancellationToken);

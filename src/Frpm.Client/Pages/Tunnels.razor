@@ -34,17 +34,55 @@
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" md="4">
-                <MudSelect T="string" Label="@(_request.TunnelId is null ? "节点" : "节点（编辑时不可修改）")" @bind-Value="_request.NodeId" Variant="Variant.Outlined" Disabled="@(_loadingNodes || _request.TunnelId is not null)" Required="@RequiresNode" HelperText="@NodeHelperText">
-                    @if (!string.IsNullOrWhiteSpace(_request.NodeId) && _nodes.All(node => node.Id != _request.NodeId))
-                    {
-                        <MudSelectItem Value="_request.NodeId" Disabled>当前节点 · 节点列表中不可用</MudSelectItem>
-                    }
-                    @foreach (var node in _nodes)
-                    {
-                        <MudSelectItem Value="node.Id" Disabled="@(!node.Available)">@NodeOptionText(node)</MudSelectItem>
-                    }
-                </MudSelect>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1 d-block">
+                    @(_request.TunnelId is null ? "服务器节点" : "服务器节点（编辑时不可修改）")
+                </MudText>
+                @if (SelectedNode is { } node)
+                {
+                    <MudPaper Outlined="true" Class="pa-2 d-flex align-center justify-space-between flex-wrap gap-2"
+                              Style="border-color: var(--mud-palette-primary); min-height: 56px;">
+                        <MudStack Spacing="0">
+                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small"
+                                         Color="@(node.IsOnline ? Color.Success : Color.Error)" Style="font-size: 8px;" />
+                                <MudText Typo="Typo.body2" Style="font-weight: 600;">@node.Name</MudText>
+                                @if (node.LoadPercent is not null)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Color="@(node.LoadPercent < 50 ? Color.Success : node.LoadPercent < 80 ? Color.Warning : Color.Error)"
+                                             Style="height: 18px; font-size: 10px;">
+                                        @node.LoadPercent% 负载
+                                    </MudChip>
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @(node.Region ?? "未知地区") @(string.IsNullOrWhiteSpace(node.Bandwidth) ? "" : $"· {node.Bandwidth}")
+                            </MudText>
+                        </MudStack>
+                        @if (_request.TunnelId is null)
+                        {
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.SwapHoriz" OnClick="OpenNodeSelectorAsync"
+                                       Disabled="@_loadingNodes">
+                                更换
+                            </MudButton>
+                        }
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                               StartIcon="@Icons.Material.Filled.Dns" OnClick="OpenNodeSelectorAsync"
+                               Disabled="@(_loadingNodes || _request.TunnelId is not null)"
+                               Style="height: 56px; border-style: dashed;">
+                        @(_loadingNodes ? "正在加载节点..." : "点击挑选服务器节点")
+                    </MudButton>
+                }
                 @if (_loadingNodes) { <MudProgressLinear Indeterminate Class="mt-1" /> }
+                else if (RequiresNode && string.IsNullOrWhiteSpace(_request.NodeId))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Error" Class="mt-1 d-block">必须选择一个节点</MudText>
+                }
             </MudItem>
             @if (RequiresLocalEndpoint)
             {
@@ -86,10 +124,21 @@
 {
     <MudPaper Class="pa-3 mb-4 d-flex align-center flex-wrap gap-2" Elevation="2">
         <MudText Typo="Typo.subtitle2" Class="mr-2">已选择 <b>@_selectedTunnels.Count</b> 个隧道：</MudText>
-        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="BatchStartAsync" Disabled="_batchBusy">批量启动</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small" StartIcon="@Icons.Material.Filled.Stop" OnClick="BatchStopAsync" Disabled="_batchBusy">批量停止</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Filled.PowerSettingsNew" OnClick="BatchKickAsync" Disabled="_batchBusy">批量强制下线</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Delete" OnClick="BatchDeleteAsync" Disabled="_batchBusy">批量删除</MudButton>
+        <MudTooltip Text="@BatchStartTooltip">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="BatchStartAsync" Disabled="@(_batchBusy || !CanBatchStart)">批量启动@(_batchStartCount > 0 ? $" ({_batchStartCount})" : "")</MudButton>
+        </MudTooltip>
+        <MudTooltip Text="@BatchStopTooltip">
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small" StartIcon="@Icons.Material.Filled.Stop" OnClick="BatchStopAsync" Disabled="@(_batchBusy || !CanBatchStop)">批量停止@(_batchStopCount > 0 ? $" ({_batchStopCount})" : "")</MudButton>
+        </MudTooltip>
+        @if (IsBatchKickVisible)
+        {
+            <MudTooltip Text="@BatchKickTooltip">
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Filled.PowerSettingsNew" OnClick="BatchKickAsync" Disabled="@(_batchBusy || !CanBatchKick)">批量强制下线@(_batchKickCount > 0 ? $" ({_batchKickCount})" : "")</MudButton>
+            </MudTooltip>
+        }
+        <MudTooltip Text="@BatchDeleteTooltip">
+            <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Delete" OnClick="BatchDeleteAsync" Disabled="@(_batchBusy || !CanBatchDelete)">批量删除</MudButton>
+        </MudTooltip>
         <MudSpacer />
         @if (_batchBusy)
         {
@@ -123,6 +172,15 @@ else
                 <MudTd DataLabel="隧道">
                     <MudText Typo="Typo.body2">@context.Name</MudText>
                     <MudText Typo="Typo.caption">@context.Type.ToUpperInvariant() · @context.RemoteId</MudText>
+                    @if (context.TodayTrafficInBytes is not null || context.TotalTrafficBytes is not null)
+                    {
+                        <br />
+                        <MudTooltip Text="@($"入站: {FormatBytes(context.TodayTrafficInBytes)} · 出站: {FormatBytes(context.TodayTrafficOutBytes)} · 累计: {FormatBytes(context.TotalTrafficBytes)}")">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" Style="height: 18px; font-size: 10px; margin-top: 2px;">
+                                流量: @FormatBytes(context.TotalTrafficBytes ?? context.TodayTrafficInBytes)
+                            </MudChip>
+                        </MudTooltip>
+                    }
                 </MudTd>
                 <MudTd DataLabel="供应商">@context.ProviderAccountName<br />
                     <MudText Typo="Typo.caption">
@@ -182,6 +240,13 @@ else
                             <div>
                                 <MudText Typo="Typo.h6">@tunnel.Name</MudText>
                                 <MudText Typo="Typo.caption">@tunnel.ProviderAccountName · @tunnel.Type.ToUpperInvariant()</MudText>
+                                @if (tunnel.TodayTrafficInBytes is not null || tunnel.TotalTrafficBytes is not null)
+                                {
+                                    <br />
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info" Style="height: 18px; font-size: 10px;">
+                                        流量: @FormatBytes(tunnel.TotalTrafficBytes ?? tunnel.TodayTrafficInBytes)
+                                    </MudChip>
+                                }
                             </div>
                             <MudSpacer />
                             <MudTooltip Text="@RuntimeTooltip(tunnel)">

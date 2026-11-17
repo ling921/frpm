@@ -4,22 +4,16 @@ namespace Frpm.Abstractions.Models;
 
 public static class TunnelInputRules
 {
-    private static readonly IReadOnlyList<string> StandardTypes = ["tcp", "udp", "http", "https"];
-    private static readonly IReadOnlyList<string> SakuraTypes = ["tcp", "udp", "http", "https", "wol", "etcp", "eudp"];
-    private static readonly IReadOnlyList<string> LoliaTypes = ["tcp", "udp", "tcp+udp", "http", "https"];
-
-    public static IReadOnlyList<string> TypesFor(ProviderType providerType, bool isEditing = false)
+    public static IReadOnlyList<string> TypesFor(ProviderCapabilitiesModel capabilities, bool isEditing = false)
     {
-        var types = providerType switch
-        {
-            ProviderType.SakuraFrp => SakuraTypes,
-            ProviderType.LoliaFrp => LoliaTypes,
-            _ => StandardTypes
-        };
+        var protocols = capabilities.Protocols;
         return isEditing
-            ? types.Where(t => !string.Equals(t, "tcp+udp", StringComparison.OrdinalIgnoreCase)).ToList()
-            : types;
+            ? protocols.Where(t => !string.Equals(t, "tcp+udp", StringComparison.OrdinalIgnoreCase)).ToList()
+            : protocols;
     }
+
+    public static IReadOnlyList<string> TypesFor(ProviderType providerType, bool isEditing = false) =>
+        TypesFor(BuiltInProviderCatalog.Get(providerType).Capabilities, isEditing);
 
     public static bool IsDomainType(string? type) =>
         type is not null && (type.Equals("http", StringComparison.OrdinalIgnoreCase)
@@ -29,18 +23,28 @@ public static class TunnelInputRules
         type is not null && (type.Equals("udp", StringComparison.OrdinalIgnoreCase)
             || type.Equals("eudp", StringComparison.OrdinalIgnoreCase));
 
+    public static bool RequiresLocalEndpoint(ProviderCapabilitiesModel capabilities, string? type) =>
+        !string.Equals(type, "wol", StringComparison.OrdinalIgnoreCase) && capabilities.RequiresLocalEndpoint;
+
     public static bool RequiresLocalEndpoint(ProviderType providerType, string? type) =>
-        providerType != ProviderType.SakuraFrp || !string.Equals(type, "wol", StringComparison.OrdinalIgnoreCase);
+        RequiresLocalEndpoint(BuiltInProviderCatalog.Get(providerType).Capabilities, type);
+
+    public static bool UsesRemotePort(ProviderCapabilitiesModel capabilities, string? type) =>
+        RequiresLocalEndpoint(capabilities, type) && !IsDomainType(type) && capabilities.SupportsRemotePort;
 
     public static bool UsesRemotePort(ProviderType providerType, string? type) =>
-        RequiresLocalEndpoint(providerType, type) && !IsDomainType(type);
+        UsesRemotePort(BuiltInProviderCatalog.Get(providerType).Capabilities, type);
 
-    public static int MaximumDomains(ProviderType providerType) => providerType switch
-    {
-        ProviderType.LoliaFrp => 1,
-        ProviderType.SakuraFrp => 3,
-        _ => int.MaxValue
-    };
+    public static int MaximumDomains(ProviderCapabilitiesModel capabilities) => capabilities.MaximumDomains;
+
+    public static int MaximumDomains(ProviderType providerType) =>
+        MaximumDomains(BuiltInProviderCatalog.Get(providerType).Capabilities);
+
+    public static bool RequiresCustomHttpDomain(ProviderCapabilitiesModel capabilities) =>
+        capabilities.RequiresCustomHttpDomain;
+
+    public static bool RequiresCustomHttpDomain(ProviderType providerType) =>
+        RequiresCustomHttpDomain(BuiltInProviderCatalog.Get(providerType).Capabilities);
 
     public static IReadOnlyList<string> ParseDomains(string? value) => string.IsNullOrWhiteSpace(value)
         ? []

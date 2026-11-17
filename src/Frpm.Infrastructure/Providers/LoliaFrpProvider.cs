@@ -21,6 +21,29 @@ public sealed class LoliaFrpProvider(
         using var _ = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "user/info", null, cancellationToken);
     }
 
+    public async Task<ProviderAccountMetrics?> GetAccountMetricsAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            credentials = await RefreshAsync(apiBaseUrl, credentials, cancellationToken);
+            using var doc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "user/info", null, cancellationToken);
+            var data = Data(doc.RootElement);
+            var limit = Long(data, "traffic_limit");
+            var used = Long(data, "traffic_used");
+            var bw = Long(data, "bandwidth_limit");
+            var bwBytes = bw is > 0 ? bw * 1024 * 1024 : null;
+            var role = String(data, "role");
+            return new ProviderAccountMetrics(limit, used, bwBytes, role);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<ProviderNodeModel>> GetNodesAsync(
         string apiBaseUrl,
         ProviderCredentials credentials,
@@ -31,14 +54,37 @@ public sealed class LoliaFrpProvider(
         var data = Data(document.RootElement);
         var nodes = data.TryGetProperty("nodes", out var array) ? array : data;
         if (nodes.ValueKind != JsonValueKind.Array) return [];
-        return nodes.EnumerateArray().Select(node => new ProviderNodeModel(
-            String(node, "id") ?? "", String(node, "name") ?? "未命名节点", String(node, "ip_address", "address", "host"),
-            !string.Equals(String(node, "status"), "offline", StringComparison.OrdinalIgnoreCase),
-            String(node, "region", "location"),
-            Bandwidth(node),
-            StringList(node, "supported_protocols") ?? String(node, "allow_type", "allowType", "type"),
-            String(node, "allow_port", "allowPort", "port_range"),
-            String(node, "description"))).ToList();
+        return nodes.EnumerateArray().Select(node =>
+        {
+            var id = String(node, "id") ?? "";
+            var name = String(node, "name") ?? "未命名节点";
+            var region = String(node, "region", "location");
+            var regionCode = String(node, "region_code");
+            var isOnline = !string.Equals(String(node, "status"), "offline", StringComparison.OrdinalIgnoreCase);
+            var load = Integer(node, "load");
+            var needKyc = node.TryGetProperty("need_kyc", out var nk) && nk.ValueKind is JsonValueKind.True;
+            var needBeian = node.TryGetProperty("beian_required", out var br) && br.ValueKind is JsonValueKind.True;
+            double? ratio = node.TryGetProperty("traffic_ratio", out var tr) && tr.TryGetDouble(out var trv) ? trv : null;
+            var regionGroup = NodeRegionClassifier.Classify(region, regionCode, name);
+
+            return new ProviderNodeModel(
+                id,
+                name,
+                String(node, "ip_address", "address", "host"),
+                isOnline,
+                region ?? regionCode,
+                Bandwidth(node),
+                StringList(node, "supported_protocols") ?? String(node, "allow_type", "allowType", "type"),
+                String(node, "allow_port", "allowPort", "port_range"),
+                String(node, "remark", "description"),
+                LoadPercent: load,
+                IsOnline: isOnline,
+                NeedKyc: needKyc,
+                NeedBeian: needBeian,
+                IsVip: false,
+                TrafficRatio: ratio,
+                RegionGroup: regionGroup);
+        }).ToList();
     }
 
     public async Task<ProviderTunnelPage> GetTunnelsAsync(
@@ -48,11 +94,38 @@ public sealed class LoliaFrpProvider(
         CancellationToken cancellationToken)
     {
         credentials = await RefreshAsync(apiBaseUrl, credentials, cancellationToken);
+        var trafficMap = new Dictionary<string, (long In, long Out, long Total)>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var trafficDoc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "user/traffic/tunnels?days=30", null, cancellationToken);
+            var trafficData = Data(trafficDoc.RootElement);
+            if (trafficData.TryGetProperty("tunnels", out var trafficArr) && trafficArr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var t in trafficArr.EnumerateArray())
+                {
+                    var tname = String(t, "tunnel_name");
+                    if (!string.IsNullOrWhiteSpace(tname))
+                    {
+                        trafficMap[tname] = (Long(t, "total_in") ?? 0, Long(t, "total_out") ?? 0, Long(t, "total_traffic") ?? 0);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore traffic stats fetch failure
+        }
+
         using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, $"user/tunnel?page={page}&limit=100", null, cancellationToken);
         var data = Data(document.RootElement);
         var list = data.TryGetProperty("list", out var array) ? array : default;
         var items = list.ValueKind == JsonValueKind.Array
-            ? list.EnumerateArray().Select(MapTunnel).Where(x => x is not null).Cast<ProviderTunnel>().ToList()
+            ? list.EnumerateArray().Select(v =>
+            {
+                var name = String(v, "name");
+                trafficMap.TryGetValue(name ?? "", out var tf);
+                return MapTunnel(v, tf != default ? tf : null);
+            }).Where(x => x is not null).Cast<ProviderTunnel>().ToList()
             : [];
         return new(items, Integer(data, "page") ?? page, Integer(data, "total_page") ?? page);
     }
@@ -98,7 +171,7 @@ public sealed class LoliaFrpProvider(
             if (tunnelsElement.ValueKind == JsonValueKind.Array)
             {
                 var tunnels = tunnelsElement.EnumerateArray()
-                    .Select(MapTunnel)
+                    .Select(x => MapTunnel(x))
                     .Where(x => x is not null)
                     .Cast<ProviderTunnel>()
                     .ToList();
@@ -241,21 +314,22 @@ public sealed class LoliaFrpProvider(
             [launchToken, tunnelToken]);
     }
 
-    private static ProviderTunnel? MapTunnel(JsonElement value)
+    private static ProviderTunnel? MapTunnel(JsonElement value, (long In, long Out, long Total)? traffic = null)
     {
-        var remoteId = String(value, "id", "name");
+        var id = String(value, "id");
         var hexName = String(value, "name");
+        var remoteId = id ?? hexName ?? "";
         if (string.IsNullOrWhiteSpace(remoteId) && string.IsNullOrWhiteSpace(hexName)) return null;
 
         var remark = String(value, "remark");
         var displayName = !string.IsNullOrWhiteSpace(remark)
             ? remark
-            : (!string.IsNullOrWhiteSpace(hexName) ? hexName : remoteId!);
+            : (!string.IsNullOrWhiteSpace(hexName) ? hexName : remoteId);
 
         var customDomain = String(value, "custom_domain");
         var remotePort = String(value, "remote_port");
         return new(
-            RemoteId: remoteId ?? hexName!,
+            RemoteId: remoteId,
             Name: displayName,
             Remark: remark ?? displayName,
             Type: String(value, "type") ?? "tcp",
@@ -265,7 +339,10 @@ public sealed class LoliaFrpProvider(
             LocalPort: Integer(value, "local_port"),
             RemoteAddress: string.IsNullOrWhiteSpace(customDomain) ? remotePort : customDomain,
             ProviderStatus: String(value, "status"),
-            PayloadJson: value.GetRawText());
+            PayloadJson: value.GetRawText(),
+            TodayTrafficInBytes: traffic?.In,
+            TodayTrafficOutBytes: traffic?.Out,
+            TotalTrafficBytes: traffic?.Total);
     }
 
     private static string? ResolveTunnelIdentifier(ProviderTunnel tunnel)
@@ -285,7 +362,7 @@ public sealed class LoliaFrpProvider(
 
         if (!string.IsNullOrWhiteSpace(tunnel.Name) && IsAlphanumericIdentifier(tunnel.Name)) return tunnel.Name;
         if (!string.IsNullOrWhiteSpace(tunnel.RemoteId) && IsAlphanumericIdentifier(tunnel.RemoteId)) return tunnel.RemoteId;
-        return tunnel.RemoteId ?? tunnel.Name;
+        return string.IsNullOrWhiteSpace(tunnel.RemoteId) ? null : tunnel.RemoteId;
     }
 
     internal static bool IsAlphanumericIdentifier(string? value) =>

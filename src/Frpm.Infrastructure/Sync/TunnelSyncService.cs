@@ -70,8 +70,16 @@ public sealed class TunnelSyncService(
                 {
                     tunnel = new Tunnel { ProviderAccountId = accountId, RemoteId = remote.RemoteId, Name = remote.Name, Type = remote.Type };
                     db.Tunnels.Add(tunnel);
+                    Apply(tunnel, remote, now);
                 }
-                Apply(tunnel, remote, now);
+                else
+                {
+                    if (tunnel.DeletedAt is not null && tunnel.DeletedAt > now.AddDays(-7))
+                    {
+                        continue;
+                    }
+                    Apply(tunnel, remote, now);
+                }
             }
 
             foreach (var missing in existing.Values.Where(x => x.DeletedAt is null && !seen.Contains(x.RemoteId)))
@@ -79,6 +87,22 @@ public sealed class TunnelSyncService(
                 missing.RemoteState = TunnelRemoteState.RemoteMissing;
                 missing.RuntimeMessage = missing.RuntimeState == TunnelRuntimeState.Running ? "远端隧道已不存在，请停止本地进程。" : missing.RuntimeMessage;
                 missing.UpdatedAt = now;
+            }
+
+            try
+            {
+                var metrics = await provider.GetAccountMetricsAsync(account.ApiBaseUrl, credentials, cancellationToken);
+                if (metrics is not null)
+                {
+                    account.TrafficLimitBytes = metrics.TrafficLimitBytes;
+                    account.TrafficUsedBytes = metrics.TrafficUsedBytes;
+                    account.BandwidthLimitBytes = metrics.BandwidthLimitBytes;
+                    account.UserRole = metrics.UserRole;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "无法为供应商账号 {AccountId} 获取用量配额，隧道同步将继续。", accountId);
             }
 
             account.LastSyncAt = now;
@@ -111,6 +135,9 @@ public sealed class TunnelSyncService(
         tunnel.RemoteAddress = remote.RemoteAddress;
         tunnel.ProviderStatus = remote.ProviderStatus;
         tunnel.ProviderPayloadJson = remote.PayloadJson;
+        tunnel.TodayTrafficInBytes = remote.TodayTrafficInBytes;
+        tunnel.TodayTrafficOutBytes = remote.TodayTrafficOutBytes;
+        tunnel.TotalTrafficBytes = remote.TotalTrafficBytes;
         tunnel.RemoteState = Normalize(remote.ProviderStatus);
         tunnel.LastSeenRemoteAt = now;
         tunnel.UpdatedAt = now;
