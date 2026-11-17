@@ -4,6 +4,10 @@ public partial class TunnelActionButtons : ComponentBase
 {
     [Parameter, EditorRequired] public TunnelModel Tunnel { get; set; } = default!;
 
+    [Parameter] public bool Disabled { get; set; }
+
+    [Parameter] public bool Loading { get; set; }
+
     [Parameter, EditorRequired] public EventCallback<TunnelModel> Start { get; set; }
 
     [Parameter, EditorRequired] public EventCallback<TunnelModel> Stop { get; set; }

@@ -82,6 +82,23 @@
 
 <MudTextField @bind-Value="_search" Placeholder="搜索名称、账号、地址或状态" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Class="mb-4" Immediate />
 
+@if (_selectedTunnels.Count > 0)
+{
+    <MudPaper Class="pa-3 mb-4 d-flex align-center flex-wrap gap-2" Elevation="2">
+        <MudText Typo="Typo.subtitle2" Class="mr-2">已选择 <b>@_selectedTunnels.Count</b> 个隧道：</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.PlayArrow" OnClick="BatchStartAsync" Disabled="_batchBusy">批量启动</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small" StartIcon="@Icons.Material.Filled.Stop" OnClick="BatchStopAsync" Disabled="_batchBusy">批量停止</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small" StartIcon="@Icons.Material.Filled.PowerSettingsNew" OnClick="BatchKickAsync" Disabled="_batchBusy">批量强制下线</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Delete" OnClick="BatchDeleteAsync" Disabled="_batchBusy">批量删除</MudButton>
+        <MudSpacer />
+        @if (_batchBusy)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate Class="mr-2" />
+        }
+        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearSelection" Disabled="_batchBusy">取消选择</MudButton>
+    </MudPaper>
+}
+
 @if (_loading)
 {
     <MudProgressLinear Indeterminate />
@@ -93,14 +110,14 @@ else if (Filtered.Count == 0)
 else
 {
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
-        <MudTable Items="Filtered" Hover Dense Elevation="0" Outlined>
+        <MudTable T="TunnelModel" Items="Filtered" MultiSelection="true" @bind-SelectedItems="_selectedTunnels" Comparer="_tunnelComparer" SelectOnRowClick="false" Hover Dense Elevation="0" Outlined>
             <HeaderContent>
                 <MudTh>隧道</MudTh>
                 <MudTh>供应商</MudTh>
                 <MudTh>映射</MudTh>
                 <MudTh>远端</MudTh>
                 <MudTh>本地进程</MudTh>
-                <MudTh>操作</MudTh>
+                <MudTh Style="text-align:right">操作</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd DataLabel="隧道">
@@ -149,7 +166,7 @@ else
                     </MudTooltip>
                 </MudTd>
                 <MudTd DataLabel="操作" Style="text-align:right">
-                    <TunnelActionButtons Tunnel="context" Start="StartAsync" Stop="StopAsync" Kick="KickAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
+                    <TunnelActionButtons Tunnel="context" Loading="IsTunnelBusy(context.Id)" Disabled="_batchBusy" Start="StartAsync" Stop="StopAsync" Kick="KickAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
                 </MudTd>
             </RowTemplate>
         </MudTable>
@@ -160,7 +177,8 @@ else
             {
                 <MudCard Outlined>
                     <MudCardContent>
-                        <MudStack Row>
+                        <MudStack Row AlignItems="AlignItems.Center">
+                            <MudCheckBox T="bool" Value="@IsSelected(tunnel)" ValueChanged="@(selected => ToggleSelect(tunnel, selected))" Dense="true" Size="Size.Small" Color="Color.Primary" />
                             <div>
                                 <MudText Typo="Typo.h6">@tunnel.Name</MudText>
                                 <MudText Typo="Typo.caption">@tunnel.ProviderAccountName · @tunnel.Type.ToUpperInvariant()</MudText>
@@ -198,7 +216,7 @@ else
                         <MudText Typo="Typo.caption">远端：@RemoteText(tunnel.RemoteState)</MudText>
                     </MudCardContent>
                     <MudCardActions>
-                        <TunnelActionButtons Tunnel="tunnel" Start="StartAsync" Stop="StopAsync" Kick="KickAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
+                        <TunnelActionButtons Tunnel="tunnel" Loading="IsTunnelBusy(tunnel.Id)" Disabled="_batchBusy" Start="StartAsync" Stop="StopAsync" Kick="KickAsync" Edit="EditAsync" OpenLog="OpenLogAsync" Delete="DeleteAsync" />
                     </MudCardActions>
                 </MudCard>
             }

@@ -1,15 +1,45 @@
-<MudStack Row Spacing="1">
-    <MudIconButton Icon="@(IsRunning ? Icons.Material.Filled.Stop : Icons.Material.Filled.PlayArrow)"
-                   Color="@(IsRunning ? Color.Warning : Color.Success)"
-                   Size="Size.Small"
-                   OnClick="ToggleAsync" />
-    @if (Kick.HasDelegate)
+<MudStack Row Spacing="1" AlignItems="AlignItems.Center">
+    @if (Loading)
     {
-        <MudTooltip Text="强制下线并重置（解除服务端残留与禁用状态）">
-            <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew" Color="Color.Secondary" Size="Size.Small" OnClick="() => Kick.InvokeAsync(Tunnel)" />
+        <MudProgressCircular Size="Size.Small" Indeterminate Color="Color.Primary" />
+    }
+    else
+    {
+        <MudTooltip Text="@(IsRunning ? "停止" : "启动")">
+            <MudIconButton Icon="@(IsRunning ? Icons.Material.Filled.Stop : Icons.Material.Filled.PlayArrow)"
+                           Color="@(IsRunning ? Color.Warning : Color.Success)"
+                           Size="Size.Small"
+                           Disabled="Disabled"
+                           OnClick="ToggleAsync" />
+        </MudTooltip>
+        @if (Kick.HasDelegate)
+        {
+            <MudTooltip Text="强制下线并重置（解除服务端残留与禁用状态）">
+                <MudIconButton Icon="@Icons.Material.Filled.PowerSettingsNew"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               Disabled="Disabled"
+                               OnClick="() => Kick.InvokeAsync(Tunnel)" />
+            </MudTooltip>
+        }
+        <MudTooltip Text="编辑">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                           Size="Size.Small"
+                           Disabled="Disabled"
+                           OnClick="() => Edit.InvokeAsync(Tunnel)" />
+        </MudTooltip>
+        <MudTooltip Text="查看日志">
+            <MudIconButton Icon="@Icons.Material.Filled.Article"
+                           Size="Size.Small"
+                           Disabled="Disabled"
+                           OnClick="() => OpenLog.InvokeAsync(Tunnel)" />
+        </MudTooltip>
+        <MudTooltip Text="删除">
+            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                           Color="Color.Error"
+                           Size="Size.Small"
+                           Disabled="Disabled"
+                           OnClick="() => Delete.InvokeAsync(Tunnel)" />
         </MudTooltip>
     }
-    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit.InvokeAsync(Tunnel)" />
-    <MudIconButton Icon="@Icons.Material.Filled.Article" Size="Size.Small" OnClick="() => OpenLog.InvokeAsync(Tunnel)" />
-    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="() => Delete.InvokeAsync(Tunnel)" />
 </MudStack>

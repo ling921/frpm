@@ -228,8 +228,8 @@ public sealed class TunnelService(
 
     public async Task KickAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await using var gate = await operationLock.AcquireAsync($"tunnel:{id}", cancellationToken);
         await supervisor.StopAsync(id, "管理员强制下线。", cancellationToken);
+        await using var gate = await operationLock.AcquireAsync($"tunnel:{id}", cancellationToken);
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var tunnel = await db.Tunnels.Include(x => x.ProviderAccount).SingleOrDefaultAsync(x => x.Id == id, cancellationToken)
             ?? throw new KeyNotFoundException("隧道不存在。");

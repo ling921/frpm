@@ -95,7 +95,7 @@ public sealed class TunnelProcessSupervisor(
 
         try
         {
-            await StartCoreAsync(tunnelId, isAutoRetry: true, cancellationToken);
+            await StartCoreInternalAsync(tunnelId, isAutoRetry: true, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -113,7 +113,9 @@ public sealed class TunnelProcessSupervisor(
                 .Where(x => x.DesiredState == TunnelDesiredState.Running
                     && x.RuntimeState == TunnelRuntimeState.Failed
                     && x.DeletedAt == null
-                    && x.ProviderAccount.Enabled)
+                    && x.ProviderAccount.Enabled
+                    && x.RemoteState != TunnelRemoteState.RemoteMissing
+                    && x.RemoteState != TunnelRemoteState.Deleted)
                 .Select(x => x.Id)
                 .ToListAsync(cancellationToken);
 
@@ -138,6 +140,11 @@ public sealed class TunnelProcessSupervisor(
     private async Task StartCoreAsync(Guid tunnelId, bool isAutoRetry, CancellationToken cancellationToken)
     {
         await using var gate = await operationLock.AcquireAsync($"tunnel:{tunnelId}", cancellationToken);
+        await StartCoreInternalAsync(tunnelId, isAutoRetry, cancellationToken);
+    }
+
+    private async Task StartCoreInternalAsync(Guid tunnelId, bool isAutoRetry, CancellationToken cancellationToken)
+    {
         if (_processes.TryGetValue(tunnelId, out var existing) && !existing.Process.HasExited) return;
 
         await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
