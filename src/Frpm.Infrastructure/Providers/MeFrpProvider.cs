@@ -16,11 +16,57 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
         EnsureSuccess(document.RootElement);
     }
 
+    public async Task<ProviderAccountMetrics?> GetAccountMetricsAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var doc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "auth/user/info", null, cancellationToken);
+            EnsureSuccess(doc.RootElement);
+            var data = Data(doc.RootElement);
+            var trafficMb = Long(data, "traffic");
+            var trafficBytes = trafficMb is > 0 ? trafficMb * 1024 * 1024 : null;
+            var outBound = Long(data, "outBound");
+            var bwBytes = outBound is > 0 ? outBound * 1024 : null;
+            var group = String(data, "friendlyGroup") ?? String(data, "group");
+            return new ProviderAccountMetrics(trafficBytes, null, bwBytes, group);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<ProviderNodeModel>> GetNodesAsync(
         string apiBaseUrl,
         ProviderCredentials credentials,
         CancellationToken cancellationToken)
     {
+        var loadMap = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var statusDoc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "auth/node/status", null, cancellationToken);
+            EnsureSuccess(statusDoc.RootElement);
+            var statusData = Data(statusDoc.RootElement);
+            if (statusData.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var sn in statusData.EnumerateArray())
+                {
+                    var id = String(sn, "nodeId");
+                    if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        loadMap[id] = Integer(sn, "loadPercent");
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore status failure
+        }
+
         using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "auth/node/list", null, cancellationToken);
         EnsureSuccess(document.RootElement);
         var data = Data(document.RootElement);
@@ -29,16 +75,34 @@ public sealed class MeFrpProvider(IHttpClientFactory httpClientFactory) : HttpPr
             return [];
         }
 
-        var nodes = data.EnumerateArray().Select(node => new ProviderNodeModel(
-            String(node, "nodeId") ?? "",
-            String(node, "name") ?? "未命名节点",
-            String(node, "hostname"),
-            Boolean(node, "isOnline") == true && Boolean(node, "isDisabled") != true,
-            String(node, "region"),
-            String(node, "bandwidth"),
-            String(node, "allowType"),
-            String(node, "allowPort"),
-            String(node, "description"))).ToList();
+        var nodes = data.EnumerateArray().Select(node =>
+        {
+            var id = String(node, "nodeId") ?? "";
+            var name = String(node, "name") ?? "未命名节点";
+            var isOnline = Boolean(node, "isOnline") == true && Boolean(node, "isDisabled") != true;
+            var region = String(node, "region");
+            loadMap.TryGetValue(id, out var load);
+            var regionGroup = NodeRegionClassifier.Classify(region, null, name);
+
+            return new ProviderNodeModel(
+                id,
+                name,
+                String(node, "hostname"),
+                isOnline,
+                region,
+                String(node, "bandwidth"),
+                String(node, "allowType"),
+                String(node, "allowPort"),
+                String(node, "description"),
+                LoadPercent: load,
+                IsOnline: isOnline,
+                NeedKyc: Boolean(node, "needRealname") == true,
+                NeedBeian: false,
+                IsVip: false,
+                TrafficRatio: null,
+                RegionGroup: regionGroup);
+        }).ToList();
+
         var addresses = await GetNodeAddressesAsync(apiBaseUrl, credentials, cancellationToken);
         return nodes.Select(node => string.IsNullOrWhiteSpace(node.Address)
             && addresses.TryGetValue(node.Id, out var address)

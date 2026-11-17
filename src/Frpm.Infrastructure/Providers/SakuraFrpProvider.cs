@@ -15,21 +15,63 @@ public sealed class SakuraFrpProvider(IHttpClientFactory httpClientFactory) : Ht
         using var _ = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "user/info", null, cancellationToken);
     }
 
+    public async Task<ProviderAccountMetrics?> GetAccountMetricsAsync(
+        string apiBaseUrl,
+        ProviderCredentials credentials,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var doc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "user/info", null, cancellationToken);
+            var data = Data(doc.RootElement);
+            var trafficKib = Long(data, "traffic");
+            var trafficBytes = trafficKib is > 0 ? trafficKib * 1024 : null;
+            var group = String(data, "group");
+            return new ProviderAccountMetrics(trafficBytes, null, null, group);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<IReadOnlyList<ProviderNodeModel>> GetNodesAsync(
         string apiBaseUrl,
         ProviderCredentials credentials,
         CancellationToken cancellationToken)
     {
-        using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "nodes", null, cancellationToken);
-        var root = Data(document.RootElement);
-        if (root.ValueKind == JsonValueKind.Object)
+        var statsMap = new Dictionary<string, (int? Load, bool? Online)>(StringComparer.OrdinalIgnoreCase);
+        try
         {
-            return root.EnumerateObject().Select(property => MapNode(property.Name, property.Value)).ToList();
+            using var statsDoc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "node/stats", null, cancellationToken);
+            var statsData = Data(statsDoc.RootElement);
+            if (statsData.TryGetProperty("nodes", out var statsNodes) && statsNodes.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var sn in statsNodes.EnumerateArray())
+                {
+                    var snId = String(sn, "id");
+                    if (!string.IsNullOrWhiteSpace(snId))
+                    {
+                        var onlineVal = Integer(sn, "online");
+                        var loadVal = Integer(sn, "load");
+                        statsMap[snId] = (loadVal, onlineVal is >= 0);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore stats failure
         }
 
-        return root.ValueKind == JsonValueKind.Array
-            ? root.EnumerateArray().Select(node => MapNode(String(node, "id") ?? "", node)).ToList()
-            : [];
+        using var document = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "nodes", null, cancellationToken);
+        var root = Data(document.RootElement);
+        var list = root.ValueKind == JsonValueKind.Object
+            ? root.EnumerateObject().Select(property => MapNode(property.Name, property.Value, statsMap)).ToList()
+            : root.ValueKind == JsonValueKind.Array
+                ? root.EnumerateArray().Select(node => MapNode(String(node, "id") ?? "", node, statsMap)).ToList()
+                : [];
+        return list;
     }
 
     public async Task<ProviderTunnelPage> GetTunnelsAsync(
@@ -145,20 +187,37 @@ public sealed class SakuraFrpProvider(IHttpClientFactory httpClientFactory) : Ht
         new(id, name, request.Remark, request.Type, request.NodeId, null, request.LocalAddress, request.LocalPort,
             request.CustomDomain ?? request.RemotePort?.ToString(), "inactive", payload);
 
-    private static ProviderNodeModel MapNode(string id, JsonElement node)
+    private static ProviderNodeModel MapNode(string id, JsonElement node, Dictionary<string, (int? Load, bool? Online)> statsMap)
     {
         var flag = Integer(node, "flag") ?? 0;
         var canCreate = (flag & (1 << 2)) != 0;
-        var offline = (flag & (1 << 9)) != 0;
+        var offlineFlag = (flag & (1 << 9)) != 0;
         var types = new List<string> { "TCP" };
         if ((flag & (1 << 5)) != 0) types.Add("UDP");
         if ((flag & 0b11) == 0b11) types.AddRange(["HTTP", "HTTPS"]);
+
+        statsMap.TryGetValue(id, out var stat);
+        var isOnline = (stat.Online ?? !offlineFlag) && !offlineFlag;
+        var name = String(node, "name") ?? "未命名节点";
+        var isVip = Boolean(node, "vip") == true;
+        var regionGroup = NodeRegionClassifier.Classify(null, null, name);
+
         return new(
             id,
-            String(node, "name") ?? "未命名节点",
+            name,
             String(node, "host", "address"),
-            canCreate && !offline,
+            canCreate && isOnline,
+            Region: null,
+            Bandwidth: null,
             AllowedTypes: string.Join(" / ", types),
-            Description: String(node, "description"));
+            PortRange: null,
+            Description: String(node, "description"),
+            LoadPercent: stat.Load,
+            IsOnline: isOnline,
+            NeedKyc: false,
+            NeedBeian: false,
+            IsVip: isVip,
+            TrafficRatio: null,
+            RegionGroup: regionGroup);
     }
 }

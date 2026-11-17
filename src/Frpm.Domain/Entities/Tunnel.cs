@@ -22,6 +22,9 @@ public sealed class Tunnel
     public TunnelDesiredState DesiredState { get; set; } = TunnelDesiredState.Stopped;
     public TunnelRuntimeState RuntimeState { get; set; } = TunnelRuntimeState.Stopped;
     public string? RuntimeMessage { get; set; }
+    public long? TodayTrafficInBytes { get; set; }
+    public long? TodayTrafficOutBytes { get; set; }
+    public long? TotalTrafficBytes { get; set; }
     public DateTimeOffset LastSeenRemoteAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? DeletedAt { get; set; }

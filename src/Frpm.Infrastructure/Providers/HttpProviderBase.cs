@@ -58,6 +58,12 @@ public abstract class HttpProviderBase(IHttpClientFactory httpClientFactory)
         return int.TryParse(value, out var parsed) ? parsed : null;
     }
 
+    protected static long? Long(JsonElement element, params string[] names)
+    {
+        var value = String(element, names);
+        return long.TryParse(value, out var parsed) ? parsed : null;
+    }
+
     protected static bool? Boolean(JsonElement element, params string[] names)
     {
         foreach (var name in names)

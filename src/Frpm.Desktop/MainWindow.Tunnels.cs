@@ -72,10 +72,30 @@ internal sealed partial class MainWindow
                 if (_selectedTunnelIds.Count > 0)
                 {
                     var selectedTargets = tunnels.Where(t => _selectedTunnelIds.Contains(t.Id)).ToList();
-                    batchButtons.Add(ActionButton("批量启动", () => BatchStartAsync(selectedTargets), primary: true));
-                    batchButtons.Add(ActionButton("批量停止", () => BatchStopAsync(selectedTargets)));
-                    batchButtons.Add(ActionButton("批量强制下线", () => BatchKickAsync(selectedTargets)));
-                    batchButtons.Add(ActionButton("批量删除", () => BatchDeleteAsync(selectedTargets)));
+                    var (canStart, startReason, startCount) = TunnelActionEvaluator.EvaluateBatchStart(selectedTargets);
+                    var startBtn = ActionButton("批量启动", () => BatchStartAsync(selectedTargets), primary: true);
+                    startBtn.IsEnabled = canStart;
+                    ToolTip.SetTip(startBtn, startReason ?? $"启动选中的 {startCount} 个已停止隧道");
+                    batchButtons.Add(startBtn);
+
+                    var (canStop, stopReason, stopCount) = TunnelActionEvaluator.EvaluateBatchStop(selectedTargets);
+                    var stopBtn = ActionButton("批量停止", () => BatchStopAsync(selectedTargets));
+                    stopBtn.IsEnabled = canStop;
+                    ToolTip.SetTip(stopBtn, stopReason ?? $"停止选中的 {stopCount} 个运行中隧道");
+                    batchButtons.Add(stopBtn);
+
+                    var (canKick, isKickVisible, kickReason, kickCount) = TunnelActionEvaluator.EvaluateBatchKick(selectedTargets, t => BuiltInProviderCatalog.Get(t.ProviderType).Capabilities);
+                    var kickBtn = ActionButton("批量强制下线", () => BatchKickAsync(selectedTargets));
+                    kickBtn.IsEnabled = canKick;
+                    ToolTip.SetTip(kickBtn, kickReason ?? $"对选中的 {kickCount} 个隧道向供应商发送强制下线并解除禁用");
+                    batchButtons.Add(kickBtn);
+
+                    var (canDelete, deleteReason, deleteCount) = TunnelActionEvaluator.EvaluateBatchDelete(selectedTargets);
+                    var deleteBtn = ActionButton("批量删除", () => BatchDeleteAsync(selectedTargets));
+                    deleteBtn.IsEnabled = canDelete;
+                    ToolTip.SetTip(deleteBtn, deleteReason ?? $"删除选中的 {selectedTargets.Count} 个隧道");
+                    batchButtons.Add(deleteBtn);
+
                     var clearBtn = new Button { Content = "取消选择", Margin = new Thickness(0, 0, 8, 4) };
                     clearBtn.Click += (_, _) =>
                     {
@@ -116,38 +136,73 @@ internal sealed partial class MainWindow
                 var rowContent = Stack(heading,
                     Text($"{localEndpoint}  →  {tunnel.RemoteAddress ?? "等待远端映射"}", size: 15),
                     Text($"{tunnel.ProviderAccountName} · {tunnel.ProviderType} · {tunnel.Type.ToUpperInvariant()} · {tunnel.NodeName ?? tunnel.NodeId ?? "默认节点"}", hint: true));
+                if (tunnel.TodayTrafficInBytes is not null || tunnel.TotalTrafficBytes is not null)
+                {
+                    rowContent.Children.Add(Text($"入站: {TunnelActionEvaluator.FormatBytes(tunnel.TodayTrafficInBytes)} · 出站: {TunnelActionEvaluator.FormatBytes(tunnel.TodayTrafficOutBytes)} · 累计流量: {TunnelActionEvaluator.FormatBytes(tunnel.TotalTrafficBytes ?? tunnel.TodayTrafficInBytes)}", hint: true));
+                }
                 if (!string.IsNullOrWhiteSpace(tunnel.RuntimeMessage) && tunnel.RuntimeState is TunnelRuntimeState.Failed)
                     rowContent.Children.Add(Text(tunnel.RuntimeMessage, hint: true));
                 if (!string.IsNullOrWhiteSpace(tunnel.Remark))
                     rowContent.Children.Add(Text(tunnel.Remark, hint: true));
 
                 var actions = new List<Control>();
+                var caps = BuiltInProviderCatalog.Get(tunnel.ProviderType).Capabilities;
+
                 if (tunnel.RuntimeState == TunnelRuntimeState.Running)
-                    actions.Add(ActionButton("停止", () => _workspace.StopTunnelAsync(tunnel.Id, _lifetime.Token)));
-                else if (tunnel.RuntimeState is not (TunnelRuntimeState.Starting or TunnelRuntimeState.Stopping))
-                    actions.Add(ActionButton("启动", () => _workspace.StartTunnelAsync(tunnel.Id, _lifetime.Token), primary: true));
-                if (tunnel.RuntimeState is TunnelRuntimeState.Running or TunnelRuntimeState.Failed)
                 {
-                    actions.Add(ActionButton("强制下线", async () =>
+                    var canStop = TunnelActionEvaluator.CanStop(tunnel, out var stopReason);
+                    var stopBtn = ActionButton("停止", () => _workspace.StopTunnelAsync(tunnel.Id, _lifetime.Token));
+                    stopBtn.IsEnabled = canStop;
+                    if (!canStop && stopReason is not null) ToolTip.SetTip(stopBtn, stopReason);
+                    actions.Add(stopBtn);
+                }
+                else
+                {
+                    var canStart = TunnelActionEvaluator.CanStart(tunnel, out var startReason);
+                    var startBtn = ActionButton("启动", () => _workspace.StartTunnelAsync(tunnel.Id, _lifetime.Token), primary: true);
+                    startBtn.IsEnabled = canStart;
+                    if (!canStart && startReason is not null) ToolTip.SetTip(startBtn, startReason);
+                    actions.Add(startBtn);
+                }
+
+                if (TunnelActionEvaluator.IsKickVisible(caps))
+                {
+                    var canKick = TunnelActionEvaluator.CanKick(tunnel, caps, out var kickReason);
+                    var kickBtn = ActionButton("强制下线", async () =>
                     {
                         if (await ConfirmAsync("强制下线", $"将重置供应商端的“{tunnel.Name}”残留会话并停止本地进程，是否继续？"))
                             await _workspace.KickTunnelAsync(tunnel.Id, _lifetime.Token);
-                    }));
+                    });
+                    kickBtn.IsEnabled = canKick;
+                    if (!canKick && kickReason is not null) ToolTip.SetTip(kickBtn, kickReason);
+                    actions.Add(kickBtn);
                 }
-                actions.Add(ActionButton("编辑", () => EditTunnelAsync(tunnel)));
+
+                var canEdit = TunnelActionEvaluator.CanEdit(tunnel, out var editReason);
+                var editBtn = ActionButton("编辑", () => EditTunnelAsync(tunnel));
+                editBtn.IsEnabled = canEdit;
+                if (!canEdit && editReason is not null) ToolTip.SetTip(editBtn, editReason);
+                actions.Add(editBtn);
+
                 if (tunnel.LocalPort is not null)
                     actions.Add(ActionButton("测试本地服务", async () =>
                     {
                         var result = await _workspace.TestEndpointAsync(new(tunnel.LocalAddress ?? "127.0.0.1", tunnel.LocalPort, tunnel.Type), _lifetime.Token);
                         await new FormDialog("本地连通测试", Stack(Text(result.Message)), () => Task.CompletedTask, "关闭") { Height = 280 }.ShowDialog<bool>(this);
                     }));
+
                 if (tunnelIdsWithRuns.Contains(tunnel.Id))
                     actions.Add(ActionButton("运行日志", () => OpenTunnelLogAsync(tunnel.Id)));
-                actions.Add(ActionButton("删除", async () =>
+
+                var canDelete = TunnelActionEvaluator.CanDelete(tunnel, out var deleteReason);
+                var deleteBtn = ActionButton("删除", async () =>
                 {
                     if (await ConfirmAsync("删除隧道", $"这会停止并删除供应商端的“{tunnel.Name}”，是否继续？"))
                         await _workspace.DeleteTunnelAsync(tunnel.Id, _lifetime.Token);
-                }));
+                });
+                deleteBtn.IsEnabled = canDelete;
+                if (!canDelete && deleteReason is not null) ToolTip.SetTip(deleteBtn, deleteReason);
+                actions.Add(deleteBtn);
                 rowContent.Children.Add(Actions(actions.ToArray()));
 
                 var rowLayout = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
@@ -181,10 +236,10 @@ internal sealed partial class MainWindow
 
     private async Task BatchStartAsync(IReadOnlyList<TunnelModel> targets)
     {
-        var toStart = targets.Where(t => t.RuntimeState is not (TunnelRuntimeState.Running or TunnelRuntimeState.Starting)).ToList();
+        var toStart = targets.Where(t => TunnelActionEvaluator.CanStart(t, out _)).ToList();
         if (toStart.Count == 0)
         {
-            ShowStatus("所选隧道均已在运行或启动中。", InfoBarSeverity.Informational);
+            ShowStatus("所选隧道均已在运行或状态不可用。", InfoBarSeverity.Informational);
             return;
         }
         await RunActionAsync(async () =>
@@ -198,10 +253,10 @@ internal sealed partial class MainWindow
 
     private async Task BatchStopAsync(IReadOnlyList<TunnelModel> targets)
     {
-        var toStop = targets.Where(t => t.RuntimeState is not (TunnelRuntimeState.Stopped or TunnelRuntimeState.Stopping)).ToList();
+        var toStop = targets.Where(t => TunnelActionEvaluator.CanStop(t, out _)).ToList();
         if (toStop.Count == 0)
         {
-            ShowStatus("所选隧道均已停止。", InfoBarSeverity.Informational);
+            ShowStatus("所选隧道均未在运行。", InfoBarSeverity.Informational);
             return;
         }
         await RunActionAsync(async () =>
@@ -215,12 +270,19 @@ internal sealed partial class MainWindow
 
     private async Task BatchKickAsync(IReadOnlyList<TunnelModel> targets)
     {
-        if (targets.Count == 0) return;
-        if (!await ConfirmAsync("批量强制下线", $"将对选中的 {targets.Count} 条隧道执行供应商端下线重置，是否继续？"))
+        var eligible = targets
+            .Where(t => TunnelActionEvaluator.CanKick(t, BuiltInProviderCatalog.Get(t.ProviderType).Capabilities, out _))
+            .ToList();
+        if (eligible.Count == 0)
+        {
+            ShowStatus("所选隧道的供应商均不支持强制下线，或远端未在线且本地未运行。", InfoBarSeverity.Informational);
+            return;
+        }
+        if (!await ConfirmAsync("批量强制下线", $"将对符合条件的 {eligible.Count} 条隧道执行供应商端下线重置，是否继续？"))
             return;
         await RunActionAsync(async () =>
         {
-            var result = await _workspace.KickTunnelsAsync(targets.Select(t => t.Id).ToArray(), _lifetime.Token);
+            var result = await _workspace.KickTunnelsAsync(eligible.Select(t => t.Id).ToArray(), _lifetime.Token);
             await RenderPageAsync();
             var msg = $"批量强制下线完成：成功 {result.SuccessCount} 条" + (result.HasErrors ? $"，失败 {result.Errors.Count} 条（{string.Join("；", result.Errors.Take(3))}）" : "。");
             ShowStatus(msg, result.HasErrors ? InfoBarSeverity.Warning : InfoBarSeverity.Success);
@@ -275,7 +337,8 @@ internal sealed partial class MainWindow
         var remark = Input(tunnel?.Remark);
         var selectedAccount = (ProviderAccountModel)accountBox.SelectedItem!;
         var type = Choice(TunnelInputRules.TypesFor(selectedAccount.ProviderType, isEditing: tunnel is not null), tunnel?.Type ?? "tcp", t => t.ToUpperInvariant());
-        var nodes = Choice(Array.Empty<ProviderNodeModel>(), null, n => $"{n.Name} · {(n.Available ? "可用" : "不可用")} · {n.Id}");
+        var nodes = Choice(Array.Empty<ProviderNodeModel>(), null, n =>
+            $"{n.Name} · {(n.IsOnline ? "🟢在线" : "🔴离线")}{(n.LoadPercent is not null ? $" · 负载{n.LoadPercent}%" : "")} · {n.Region ?? "通用"}{(string.IsNullOrWhiteSpace(n.Bandwidth) ? "" : $" · {n.Bandwidth}")}");
         var nodeHelp = Text("正在加载节点…", hint: true);
         var suggestions = await _workspace.GetLocalAddressesAsync(_lifetime.Token);
         var initialAddress = tunnel?.LocalAddress ?? "127.0.0.1";

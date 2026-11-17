@@ -10,7 +10,10 @@ public sealed record TunnelModel(
     string RemoteId, string Name, string? Remark, string Type, string? NodeId, string? NodeName,
     string? LocalAddress, int? LocalPort, string? RemoteAddress, string? ProviderStatus,
     TunnelRemoteState RemoteState, TunnelDesiredState DesiredState, TunnelRuntimeState RuntimeState,
-    string? RuntimeMessage, DateTimeOffset UpdatedAt, string? ProviderDomain, string? NodeAddress);
+    string? RuntimeMessage, DateTimeOffset UpdatedAt, string? ProviderDomain, string? NodeAddress,
+    long? TodayTrafficInBytes = null,
+    long? TodayTrafficOutBytes = null,
+    long? TotalTrafficBytes = null);
 
 /// <summary>
 /// 创建或更新供应商隧道所需的参数。

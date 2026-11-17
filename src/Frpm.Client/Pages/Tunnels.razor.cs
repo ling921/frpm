@@ -252,6 +252,111 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         };
     }
 
+    private ProviderNodeModel? SelectedNode =>
+        _nodes.FirstOrDefault(n => string.Equals(n.Id, _request.NodeId, StringComparison.OrdinalIgnoreCase));
+
+    private async Task OpenNodeSelectorAsync()
+    {
+        if (_loadingNodes || _request.TunnelId is not null) return;
+        if (_nodes.Count == 0)
+        {
+            Snackbar.Add("当前账号下暂无可用服务器节点。", Severity.Info);
+            return;
+        }
+
+        var parameters = new DialogParameters<NodeSelectorDialog>
+        {
+            { x => x.Nodes, _nodes },
+            { x => x.SelectedNodeId, _request.NodeId }
+        };
+
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true,
+            CloseButton = true
+        };
+
+        var dialog = await DialogService.ShowAsync<NodeSelectorDialog>("挑选隧道服务器节点", parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ProviderNodeModel selectedNode })
+        {
+            _request.NodeId = selectedNode.Id;
+        }
+    }
+
+    private int _batchStartCount;
+    private string? _batchStartReason;
+    private bool CanBatchStart
+    {
+        get
+        {
+            var (can, reason, count) = TunnelActionEvaluator.EvaluateBatchStart(_selectedTunnels);
+            _batchStartCount = count;
+            _batchStartReason = reason;
+            return can;
+        }
+    }
+    private string BatchStartTooltip => _batchStartReason ?? $"启动选中的 {_batchStartCount} 个已停止隧道";
+
+    private int _batchStopCount;
+    private string? _batchStopReason;
+    private bool CanBatchStop
+    {
+        get
+        {
+            var (can, reason, count) = TunnelActionEvaluator.EvaluateBatchStop(_selectedTunnels);
+            _batchStopCount = count;
+            _batchStopReason = reason;
+            return can;
+        }
+    }
+    private string BatchStopTooltip => _batchStopReason ?? $"停止选中的 {_batchStopCount} 个运行中隧道";
+
+    private int _batchKickCount;
+    private string? _batchKickReason;
+    private bool IsBatchKickVisible
+    {
+        get
+        {
+            var (_, visible, _, _) = TunnelActionEvaluator.EvaluateBatchKick(_selectedTunnels, t => BuiltInProviderCatalog.Get(t.ProviderType).Capabilities);
+            return visible;
+        }
+    }
+    private bool CanBatchKick
+    {
+        get
+        {
+            var (can, _, reason, count) = TunnelActionEvaluator.EvaluateBatchKick(_selectedTunnels, t => BuiltInProviderCatalog.Get(t.ProviderType).Capabilities);
+            _batchKickCount = count;
+            _batchKickReason = reason;
+            return can;
+        }
+    }
+    private string BatchKickTooltip => _batchKickReason ?? $"对选中的 {_batchKickCount} 个隧道向供应商发送强制下线并解除禁用";
+
+    private int _batchDeleteCount;
+    private bool CanBatchDelete
+    {
+        get
+        {
+            var (can, _, count) = TunnelActionEvaluator.EvaluateBatchDelete(_selectedTunnels);
+            _batchDeleteCount = count;
+            return can;
+        }
+    }
+    private string BatchDeleteTooltip => $"删除选中的 {_selectedTunnels.Count} 个隧道";
+
+    private static string FormatBytes(long? bytes)
+    {
+        if (bytes is null or 0) return "0 B";
+        var b = bytes.Value;
+        if (b < 1024) return $"{b} B";
+        if (b < 1024 * 1024) return $"{(b / 1024.0):F1} KB";
+        if (b < 1024 * 1024 * 1024) return $"{(b / (1024.0 * 1024)):F1} MB";
+        return $"{(b / (1024.0 * 1024 * 1024)):F2} GB";
+    }
+
     private async Task LoadNodesAsync(Guid accountId)
     {
         try
@@ -470,10 +575,10 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private async Task BatchStartAsync()
     {
-        var targets = _selectedTunnels.Where(t => t.RuntimeState != TunnelRuntimeState.Running).ToList();
+        var targets = _selectedTunnels.Where(t => TunnelActionEvaluator.CanStart(t, out _)).ToList();
         if (targets.Count == 0)
         {
-            Snackbar.Add("选中的隧道均已在运行中。", Severity.Info);
+            Snackbar.Add("选中的隧道均已在运行中或不可用。", Severity.Info);
             return;
         }
 
@@ -515,7 +620,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private async Task BatchStopAsync()
     {
-        var targets = _selectedTunnels.Where(t => t.RuntimeState == TunnelRuntimeState.Running || t.RuntimeState == TunnelRuntimeState.Starting).ToList();
+        var targets = _selectedTunnels.Where(t => TunnelActionEvaluator.CanStop(t, out _)).ToList();
         if (targets.Count == 0)
         {
             Snackbar.Add("选中的隧道均已处于停止状态。", Severity.Info);
@@ -560,12 +665,18 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private async Task BatchKickAsync()
     {
-        var targets = _selectedTunnels.ToList();
-        if (targets.Count == 0) return;
+        var targets = _selectedTunnels
+            .Where(t => TunnelActionEvaluator.CanKick(t, BuiltInProviderCatalog.Get(t.ProviderType).Capabilities, out _))
+            .ToList();
+        if (targets.Count == 0)
+        {
+            Snackbar.Add("选中的隧道均不支持强制下线或无需下线。", Severity.Info);
+            return;
+        }
 
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "批量强制下线并重置",
-            $"将向供应商发送强制下线指令并解除禁用状态（共 {targets.Count} 个隧道）。是否继续？",
+            $"将向供应商发送强制下线指令并解除禁用状态（符合条件的共 {targets.Count} 个隧道）。是否继续？",
             yesText: "执行下线",
             cancelText: "取消");
         if (confirmed is not true) return;

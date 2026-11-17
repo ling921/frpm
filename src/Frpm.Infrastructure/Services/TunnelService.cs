@@ -113,7 +113,7 @@ public sealed class TunnelService(
             {
                 await supervisor.StopAsync(entity.Id, "保存前暂时停止隧道。", cancellationToken);
             }
-            if (account.ProviderType == ProviderType.MeFrp)
+            if (provider.Capabilities.SupportsKick)
             {
                 try
                 {

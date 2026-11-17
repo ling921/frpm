@@ -14,5 +14,9 @@ public sealed class ProviderAccount
     public DateTimeOffset? LastSyncAt { get; set; }
     public bool? LastSyncSucceeded { get; set; }
     public string? LastSyncMessage { get; set; }
+    public long? TrafficLimitBytes { get; set; }
+    public long? TrafficUsedBytes { get; set; }
+    public long? BandwidthLimitBytes { get; set; }
+    public string? UserRole { get; set; }
     public List<Tunnel> Tunnels { get; set; } = [];
 }
