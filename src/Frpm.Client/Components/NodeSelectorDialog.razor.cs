@@ -15,6 +15,16 @@ public partial class NodeSelectorDialog : ComponentBase
     private string _selectedRegion = NodeRegionClassifier.GroupAll;
     private bool _onlyOnline;
     private bool _onlyLowLoad;
+    private ProviderNodeModel? _selectedNode;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        if (!string.IsNullOrWhiteSpace(SelectedNodeId))
+        {
+            _selectedNode = Nodes.FirstOrDefault(n => string.Equals(n.Id, SelectedNodeId, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 
     public sealed record NodeGroupView(
         string GroupId,
@@ -55,9 +65,6 @@ public partial class NodeSelectorDialog : ComponentBase
             return ordered;
         }
     }
-
-    private string? GetSelectedNodeName() =>
-        Nodes.FirstOrDefault(n => string.Equals(n.Id, SelectedNodeId, StringComparison.OrdinalIgnoreCase))?.Name;
 
     private int GetGroupCount(string groupId)
     {
@@ -150,9 +157,33 @@ public partial class NodeSelectorDialog : ComponentBase
         _ => Color.Error
     };
 
-    private void SelectNode(ProviderNodeModel node)
+    private void SelectCandidate(ProviderNodeModel node)
     {
-        MudDialog.Close(DialogResult.Ok(node));
+        if (!node.Available)
+        {
+            return;
+        }
+
+        _selectedNode = node;
+    }
+
+    private void ConfirmCandidate(ProviderNodeModel node)
+    {
+        if (!node.Available)
+        {
+            return;
+        }
+
+        _selectedNode = node;
+        MudDialog.Close(DialogResult.Ok(_selectedNode));
+    }
+
+    private void Confirm()
+    {
+        if (_selectedNode is not null)
+        {
+            MudDialog.Close(DialogResult.Ok(_selectedNode));
+        }
     }
 
     private void Cancel()

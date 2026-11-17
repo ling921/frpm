@@ -1,12 +1,44 @@
 @using Frpm.Abstractions.Models
 
+<style>
+    .node-card {
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        border-radius: 8px;
+        user-select: none;
+    }
+    .node-card.node-card-available:hover {
+        border-color: var(--mud-palette-primary) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .node-card.node-card-disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+    }
+    .node-card.node-card-selected {
+        border: 2px solid var(--mud-palette-primary) !important;
+        background-color: var(--mud-palette-action-default-hover) !important;
+        box-shadow: 0 4px 12px rgba(var(--mud-palette-primary-rgb), 0.18) !important;
+    }
+    .node-desc-clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: break-word;
+        line-height: 1.4em;
+        max-height: 2.8em;
+    }
+</style>
+
 <MudDialog>
     <TitleContent>
         <MudStack Row AlignItems="AlignItems.Center">
             <MudIcon Icon="@Icons.Material.Filled.Dns" Color="Color.Primary" Class="mr-2" />
             <div>
                 <MudText Typo="Typo.h6">选择服务器节点</MudText>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">共有 @Nodes.Count 个节点，已选: @(GetSelectedNodeName() ?? "未选择")</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">共有 @Nodes.Count 个节点，已选: @(_selectedNode?.Name ?? "未选择")</MudText>
             </div>
         </MudStack>
     </TitleContent>
@@ -85,29 +117,42 @@
                     <MudGrid Spacing="2">
                         @foreach (var node in group.Nodes)
                         {
-                            var isCurrent = string.Equals(node.Id, SelectedNodeId, StringComparison.OrdinalIgnoreCase);
+                            var isSelected = _selectedNode is not null && string.Equals(node.Id, _selectedNode.Id, StringComparison.OrdinalIgnoreCase);
                             <MudItem xs="12" sm="6">
-                                <MudCard Outlined="true" Class="@($"pa-3 node-card {(isCurrent ? "node-card-selected" : "")} {(node.IsOnline ? "" : "node-card-offline")}")"
-                                         Style="@(isCurrent ? "border: 2px solid var(--mud-palette-primary); background-color: var(--mud-palette-action-default-hover);" : "")">
+                                <MudCard Outlined="true"
+                                         Class="@($"pa-3 node-card {(isSelected ? "node-card-selected" : "")} {(node.Available ? "node-card-available" : "node-card-disabled")}")"
+                                         @onclick="@(() => SelectCandidate(node))"
+                                         @ondblclick="@(() => ConfirmCandidate(node))">
                                     <MudStack Spacing="1">
                                         <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1" Style="min-width: 0;">
                                                 <MudTooltip Text="@(node.IsOnline ? "节点在线" : "节点离线/维护")">
                                                     <MudIcon Icon="@Icons.Material.Filled.Circle" Size="Size.Small" Color="@(node.IsOnline ? Color.Success : Color.Error)" Style="font-size: 10px;" />
                                                 </MudTooltip>
-                                                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@node.Name</MudText>
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight: 600;" Class="text-truncate">@node.Name</MudText>
                                             </MudStack>
-                                            @if (node.IsVip)
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Style="height: 18px; font-size: 10px;">VIP</MudChip>
-                                            }
+                                            <MudStack Row AlignItems="AlignItems.Center" Spacing="1">
+                                                @if (node.IsVip)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled" Style="height: 18px; font-size: 10px;">VIP</MudChip>
+                                                }
+                                                @if (isSelected)
+                                                {
+                                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Check" Style="height: 20px; font-size: 11px; font-weight: 600;">已选中</MudChip>
+                                                }
+                                            </MudStack>
                                         </MudStack>
 
                                         @if (node.LoadPercent is not null)
                                         {
                                             <MudStack Row AlignItems="AlignItems.Center" Spacing="2" Class="my-1">
                                                 <MudText Typo="Typo.caption" Color="Color.Secondary" Style="min-width: 45px;">负载 @node.LoadPercent%</MudText>
-                                                <MudProgressLinear Value="@node.LoadPercent.Value" Color="@GetLoadColor(node.LoadPercent.Value)" Size="Size.Small" Class="flex-grow-1" Style="height: 6px; border-radius: 3px;" />
+                                                <MudProgressLinear Rounded="true"
+                                                                   Value="@node.LoadPercent.Value"
+                                                                   Color="@GetLoadColor(node.LoadPercent.Value)"
+                                                                   Size="Size.Small"
+                                                                   Class="flex-grow-1"
+                                                                   Style="height: 6px; border-radius: 4px; overflow: hidden;" />
                                             </MudStack>
                                         }
 
@@ -141,19 +186,14 @@
 
                                         @if (!string.IsNullOrWhiteSpace(node.Description))
                                         {
-                                            <MudText Typo="Typo.caption" Style="opacity: 0.8; font-style: italic;" Class="text-truncate">@node.Description</MudText>
+                                            <MudTooltip Text="@node.Description" Placement="Placement.Top" Arrow="true">
+                                                <MudText Typo="Typo.caption"
+                                                         Class="node-desc-clamp"
+                                                         Style="opacity: 0.8; font-style: italic;">
+                                                    @node.Description
+                                                </MudText>
+                                            </MudTooltip>
                                         }
-
-                                        <MudStack Row Justify="Justify.FlexEnd" Class="mt-2">
-                                            @if (isCurrent)
-                                            {
-                                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="true">当前已选</MudButton>
-                                            }
-                                            else
-                                            {
-                                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" OnClick="@(() => SelectNode(node))" Disabled="@(!node.Available)">选择</MudButton>
-                                            }
-                                        </MudStack>
                                     </MudStack>
                                 </MudCard>
                             </MudItem>
@@ -164,6 +204,24 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">关闭</MudButton>
+        <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="w-100 px-3 py-1">
+            <div>
+                @if (_selectedNode is not null)
+                {
+                    <MudText Typo="Typo.body2">
+                        已选中节点: <b style="color: var(--mud-palette-primary);">@_selectedNode.Name</b>
+                        <span style="opacity: 0.7; font-size: 0.85em; margin-left: 6px;">(@_selectedNode.RegionGroup@(string.IsNullOrWhiteSpace(_selectedNode.Bandwidth) ? "" : $" · {_selectedNode.Bandwidth}"))</span>
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">点击卡片选中节点</MudText>
+                }
+            </div>
+            <MudStack Row Spacing="2">
+                <MudButton OnClick="Cancel">取消</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Confirm" Disabled="@(_selectedNode == null)">确认</MudButton>
+            </MudStack>
+        </MudStack>
     </DialogActions>
 </MudDialog>
