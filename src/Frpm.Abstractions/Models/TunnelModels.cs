@@ -63,3 +63,11 @@ public sealed record LocalEndpointTestResult(
     int? Port,
     long? ElapsedMilliseconds,
     string Message);
+
+/// <summary>
+/// 批量操作的结果汇总。
+/// </summary>
+public sealed record BatchOperationResult(int SuccessCount, IReadOnlyList<string> Errors)
+{
+    public bool HasErrors => Errors.Count > 0;
+}

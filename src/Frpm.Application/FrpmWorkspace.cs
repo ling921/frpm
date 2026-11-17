@@ -33,6 +33,7 @@ public sealed class FrpmWorkspace(IServiceScopeFactory scopes)
     public Task DeleteTunnelAsync(Guid id, CancellationToken ct = default) => UseAsync<ITunnelService>(s => s.DeleteAsync(id, ct));
     public Task StartTunnelAsync(Guid id, CancellationToken ct = default) => UseAsync<ITunnelService>(s => s.StartAsync(id, ct));
     public Task StopTunnelAsync(Guid id, CancellationToken ct = default) => UseAsync<ITunnelService>(s => s.StopAsync(id, ct));
+    public Task KickTunnelAsync(Guid id, CancellationToken ct = default) => UseAsync<ITunnelService>(s => s.KickAsync(id, ct));
     public Task<LocalEndpointTestResult> TestEndpointAsync(LocalEndpointTestRequest request, CancellationToken ct = default) => UseAsync<ITunnelService, LocalEndpointTestResult>(s => s.TestLocalEndpointAsync(request, ct));
     public Task<IReadOnlyList<TunnelRunModel>> GetRunsAsync(Guid? tunnelId = null, CancellationToken ct = default) => UseAsync<ITunnelService, IReadOnlyList<TunnelRunModel>>(s => s.GetRunsAsync(tunnelId, ct));
     public Task<LogTailModel> TailLogAsync(Guid id, long cursor = 0, CancellationToken ct = default) => UseAsync<ILogService, LogTailModel>(s => s.TailAsync(id, cursor, 300, ct));
@@ -74,5 +75,81 @@ public sealed class FrpmWorkspace(IServiceScopeFactory scopes)
             }
         }
         if (errors.Count > 0) throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
+    }
+
+    public async Task<BatchOperationResult> StartTunnelsAsync(IReadOnlyCollection<Guid> tunnelIds, CancellationToken ct = default)
+    {
+        var successes = 0;
+        var errors = new List<string>();
+        await Task.WhenAll(tunnelIds.Select(async id =>
+        {
+            try
+            {
+                await StartTunnelAsync(id, ct);
+                Interlocked.Increment(ref successes);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lock (errors) errors.Add(ex.Message);
+            }
+        }));
+        return new BatchOperationResult(successes, errors);
+    }
+
+    public async Task<BatchOperationResult> StopTunnelsAsync(IReadOnlyCollection<Guid> tunnelIds, CancellationToken ct = default)
+    {
+        var successes = 0;
+        var errors = new List<string>();
+        await Task.WhenAll(tunnelIds.Select(async id =>
+        {
+            try
+            {
+                await StopTunnelAsync(id, ct);
+                Interlocked.Increment(ref successes);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lock (errors) errors.Add(ex.Message);
+            }
+        }));
+        return new BatchOperationResult(successes, errors);
+    }
+
+    public async Task<BatchOperationResult> KickTunnelsAsync(IReadOnlyCollection<Guid> tunnelIds, CancellationToken ct = default)
+    {
+        var successes = 0;
+        var errors = new List<string>();
+        await Task.WhenAll(tunnelIds.Select(async id =>
+        {
+            try
+            {
+                await KickTunnelAsync(id, ct);
+                Interlocked.Increment(ref successes);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lock (errors) errors.Add(ex.Message);
+            }
+        }));
+        return new BatchOperationResult(successes, errors);
+    }
+
+    public async Task<BatchOperationResult> DeleteTunnelsAsync(IReadOnlyCollection<Guid> tunnelIds, CancellationToken ct = default)
+    {
+        var successes = 0;
+        var errors = new List<string>();
+        await Task.WhenAll(tunnelIds.Select(async id =>
+        {
+            try
+            {
+                await DeleteTunnelAsync(id, ct);
+                Interlocked.Increment(ref successes);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lock (errors) errors.Add(ex.Message);
+            }
+        }));
+        return new BatchOperationResult(successes, errors);
     }
 }

@@ -236,4 +236,89 @@ public sealed class DesktopWindowTests
         }
         finally { window.AllowClose = true; window.StopRefreshing(); window.Close(); }
     }
+
+    [AvaloniaFact]
+    public async Task Tunnel_page_supports_batch_selection_and_batch_toolbar()
+    {
+        await using var runtime = new TestRuntime();
+        await runtime.StartAsync(seed: true);
+        var window = new MainWindow(runtime.Workspace,
+            runtime.Host.Services.GetRequiredService<DesktopOAuthFlow>(), runtime.Directory, () => Task.CompletedTask)
+        { TrayAvailable = true };
+        try
+        {
+            window.Show();
+            await window.InitializeAsync();
+            window.FindControl<NavigationView>("Navigation")!.SelectedItem = window.FindControl<NavigationViewItem>("TunnelsNavigationItem");
+            var busy = window.FindControl<ProgressBar>("BusyBar")!;
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            while (busy.IsVisible || window.FindControl<TextBlock>("PageTitle")!.Text != "隧道")
+                await Task.Delay(10, timeout.Token);
+
+            var checkBoxes = window.GetVisualDescendants().OfType<CheckBox>().ToArray();
+            // 1 master select-all checkbox + 2 tunnel row checkboxes = 3
+            Assert.Equal(3, checkBoxes.Length);
+
+            var selectAllCheck = checkBoxes[0];
+            Assert.False(selectAllCheck.IsChecked);
+            Assert.Contains("全选", selectAllCheck.Content?.ToString());
+
+            // Initially with 0 selected, batch buttons should not appear
+            var initialButtons = window.GetVisualDescendants().OfType<Button>().Select(b => b.Content?.ToString()).ToArray();
+            Assert.DoesNotContain("批量启动", initialButtons);
+            Assert.DoesNotContain("批量停止", initialButtons);
+            Assert.DoesNotContain("批量删除", initialButtons);
+
+            // Click the first row checkbox
+            var firstRowCheck = checkBoxes[1];
+            firstRowCheck.IsChecked = true;
+
+            // Batch buttons should now appear
+            var buttonsWithSelection = window.GetVisualDescendants().OfType<Button>().Select(b => b.Content?.ToString()).ToArray();
+            Assert.Contains("批量启动", buttonsWithSelection);
+            Assert.Contains("批量停止", buttonsWithSelection);
+            Assert.Contains("批量强制下线", buttonsWithSelection);
+            Assert.Contains("批量删除", buttonsWithSelection);
+            Assert.Contains("取消选择", buttonsWithSelection);
+
+            // Click Cancel Selection
+            var cancelBtn = window.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == "取消选择");
+            cancelBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            var buttonsAfterCancel = window.GetVisualDescendants().OfType<Button>().Select(b => b.Content?.ToString()).ToArray();
+            Assert.DoesNotContain("批量启动", buttonsAfterCancel);
+            Assert.DoesNotContain("批量停止", buttonsAfterCancel);
+        }
+        finally { window.AllowClose = true; window.StopRefreshing(); window.Close(); }
+    }
+
+    [Fact]
+    public async Task Workspace_batch_operations_execute_and_report_results()
+    {
+        await using var runtime = new TestRuntime();
+        await runtime.StartAsync(seed: true);
+        var tunnels = await runtime.Workspace.GetTunnelsAsync();
+        var tunnelIds = tunnels.Select(t => t.Id).ToArray();
+        Assert.Equal(2, tunnelIds.Length);
+
+        // Batch Start
+        var startResult = await runtime.Workspace.StartTunnelsAsync(tunnelIds);
+        Assert.Equal(2, startResult.SuccessCount);
+        Assert.False(startResult.HasErrors);
+        Assert.Equal(2, runtime.Supervisor.Starts);
+
+        // Batch Stop
+        var stopResult = await runtime.Workspace.StopTunnelsAsync(tunnelIds);
+        Assert.Equal(2, stopResult.SuccessCount);
+        Assert.False(stopResult.HasErrors);
+        Assert.Equal(2, runtime.Supervisor.Stops);
+
+        // Batch Delete
+        var deleteResult = await runtime.Workspace.DeleteTunnelsAsync(tunnelIds);
+        Assert.Equal(2, deleteResult.SuccessCount);
+        Assert.False(deleteResult.HasErrors);
+
+        var remainingTunnels = await runtime.Workspace.GetTunnelsAsync();
+        Assert.Empty(remainingTunnels);
+    }
 }
