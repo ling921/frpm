@@ -24,10 +24,75 @@ public sealed class SakuraFrpProvider(IHttpClientFactory httpClientFactory) : Ht
         {
             using var doc = await SendAsync(apiBaseUrl, credentials, HttpMethod.Get, "user/info", null, cancellationToken);
             var data = Data(doc.RootElement);
-            var trafficKib = Long(data, "traffic");
-            var trafficBytes = trafficKib is > 0 ? trafficKib * 1024 : null;
-            var group = String(data, "group");
-            return new ProviderAccountMetrics(trafficBytes, null, null, group);
+
+            long? trafficUsed = null;
+            long? trafficLimit = null;
+            if (data.TryGetProperty("traffic", out var trafficEl))
+            {
+                if (trafficEl.ValueKind == JsonValueKind.Array)
+                {
+                    var items = trafficEl.EnumerateArray().ToList();
+                    if (items.Count >= 2 && items[0].TryGetInt64(out var used) && items[1].TryGetInt64(out var remaining))
+                    {
+                        trafficUsed = used;
+                        trafficLimit = used + remaining;
+                    }
+                    else if (items.Count >= 1 && items[0].TryGetInt64(out var single))
+                    {
+                        trafficLimit = single;
+                    }
+                }
+                else if (trafficEl.ValueKind == JsonValueKind.Number && trafficEl.TryGetInt64(out var num))
+                {
+                    trafficLimit = num;
+                }
+            }
+
+            string? userRole = null;
+            if (data.TryGetProperty("group", out var groupEl))
+            {
+                if (groupEl.ValueKind == JsonValueKind.Object && groupEl.TryGetProperty("name", out var nameEl))
+                {
+                    userRole = nameEl.GetString();
+                }
+                else if (groupEl.ValueKind == JsonValueKind.String)
+                {
+                    userRole = groupEl.GetString();
+                }
+            }
+            if (string.IsNullOrWhiteSpace(userRole))
+            {
+                userRole = String(data, "group");
+            }
+
+            long? bandwidthBytes = null;
+            if (data.TryGetProperty("speed", out var speedEl) && speedEl.ValueKind == JsonValueKind.String)
+            {
+                var speedStr = speedEl.GetString();
+                if (!string.IsNullOrWhiteSpace(speedStr))
+                {
+                    var parts = speedStr.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 1 && double.TryParse(parts[0], out var speedVal))
+                    {
+                        var unit = parts.Length > 1 ? parts[1].ToLowerInvariant() : "mbps";
+                        var bitsPerSec = unit switch
+                        {
+                            "gbps" => speedVal * 1_000_000_000,
+                            "mbps" => speedVal * 1_000_000,
+                            "kbps" => speedVal * 1_000,
+                            "bps" => speedVal,
+                            _ => speedVal * 1_000_000
+                        };
+                        bandwidthBytes = (long)(bitsPerSec / 8.0);
+                    }
+                }
+            }
+            if (bandwidthBytes is null)
+            {
+                bandwidthBytes = Long(data, "bandwidth");
+            }
+
+            return new ProviderAccountMetrics(trafficLimit, trafficUsed, bandwidthBytes, userRole);
         }
         catch
         {

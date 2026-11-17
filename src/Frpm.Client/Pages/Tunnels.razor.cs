@@ -26,6 +26,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     }
 
     private List<TunnelModel> _tunnels = [];
+    private readonly HashSet<Guid> _selectedTunnelIds = [];
     private HashSet<TunnelModel> _selectedTunnels = new(_tunnelComparer);
     private readonly HashSet<Guid> _busyTunnelIds = [];
     private bool _batchBusy;
@@ -54,20 +55,43 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     private bool UsesRemotePort => TunnelInputRules.UsesRemotePort(SelectedProviderType, _request.Type);
 
     private bool IsTunnelBusy(Guid id) => _busyTunnelIds.Contains(id) || _batchBusy;
-    private bool IsSelected(TunnelModel tunnel) => _selectedTunnels.Any(x => x.Id == tunnel.Id);
+    private bool IsSelected(TunnelModel tunnel) => _selectedTunnelIds.Contains(tunnel.Id);
+
+    private void OnSelectedItemsChanged(HashSet<TunnelModel> items)
+    {
+        _selectedTunnels = new HashSet<TunnelModel>(items, _tunnelComparer);
+        _selectedTunnelIds.Clear();
+        foreach (var item in items)
+        {
+            _selectedTunnelIds.Add(item.Id);
+        }
+    }
+
+    private void SyncSelectedTunnels()
+    {
+        var validIds = _tunnels.Select(t => t.Id).ToHashSet();
+        _selectedTunnelIds.RemoveWhere(id => !validIds.Contains(id));
+        _selectedTunnels = _tunnels.Where(t => _selectedTunnelIds.Contains(t.Id)).ToHashSet(_tunnelComparer);
+    }
+
     private void ToggleSelect(TunnelModel tunnel, bool selected)
     {
         if (selected)
         {
-            _selectedTunnels.Add(tunnel);
+            _selectedTunnelIds.Add(tunnel.Id);
         }
         else
         {
-            _selectedTunnels.RemoveWhere(x => x.Id == tunnel.Id);
+            _selectedTunnelIds.Remove(tunnel.Id);
         }
+        SyncSelectedTunnels();
     }
 
-    private void ClearSelection() => _selectedTunnels.Clear();
+    private void ClearSelection()
+    {
+        _selectedTunnelIds.Clear();
+        _selectedTunnels = new HashSet<TunnelModel>(_tunnelComparer);
+    }
 
     private string DomainHelperText => SelectedProviderType switch
     {
@@ -92,7 +116,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             _accounts = (await AccountService.GetListAsync(_cts.Token)).ToList();
             var loaded = (await TunnelService.GetListAsync(_cts.Token)).ToList();
             _tunnels = loaded;
-            _selectedTunnels.IntersectWith(loaded);
+            SyncSelectedTunnels();
             _localAddressSuggestions = (await TunnelService.GetLocalAddressSuggestionsAsync(_cts.Token)).ToList();
             await LoadNodeAddressesAsync();
         }
@@ -157,7 +181,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
                     if (!TunnelsEqual(_tunnels, updated))
                     {
                         _tunnels = updated;
-                        _selectedTunnels.IntersectWith(updated);
+                        SyncSelectedTunnels();
                         await InvokeAsync(StateHasChanged);
                     }
                 }
@@ -560,7 +584,8 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             _busyTunnelIds.Add(tunnel.Id);
             await TunnelService.DeleteAsync(tunnel.Id, _cts.Token);
             Snackbar.Add($"隧道“{tunnel.Name}”已成功删除。", Severity.Success);
-            _selectedTunnels.RemoveWhere(x => x.Id == tunnel.Id);
+            _selectedTunnelIds.Remove(tunnel.Id);
+            SyncSelectedTunnels();
             await LoadAsync();
         }
         catch (Exception ex)
@@ -751,7 +776,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             }
 
             Snackbar.Add($"批量删除完成：成功删除 {successCount} 个隧道" + (failCount > 0 ? $"，失败 {failCount} 个" : "") + "。", failCount > 0 ? Severity.Warning : Severity.Success);
-            _selectedTunnels.Clear();
+            ClearSelection();
             await LoadAsync();
         }
         finally

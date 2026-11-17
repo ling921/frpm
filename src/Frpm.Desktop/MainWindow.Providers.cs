@@ -87,9 +87,9 @@ internal sealed partial class MainWindow
         var clientId = Input(account?.ClientId, watermark: account is null ? "LoliaFrp OAuth Client ID" : "留空复用已保存的 Client ID");
         var clientSecret = Input(watermark: account is null ? "OAuth Client Secret" : "留空复用已保存的 Secret", secret: true);
         var enabled = new CheckBox { Content = "启用账号并自动同步", IsChecked = account?.Enabled ?? true };
-        var callbackPort = Port(8180);
+        var callbackPort = Port(18180);
         var callback = new TextBox { IsReadOnly = true };
-        void UpdateCallback() => callback.Text = $"http://127.0.0.1:{Number(callbackPort) ?? 8180}/oauth/lolia/callback";
+        void UpdateCallback() => callback.Text = $"http://127.0.0.1:{Number(callbackPort) ?? 18180}/oauth/lolia/callback";
         callbackPort.ValueChanged += (_, _) => UpdateCallback();
         UpdateCallback();
         var oauthFields = Stack(

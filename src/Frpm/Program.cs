@@ -33,7 +33,7 @@ if (useWindowsInstallationDataDirectory)
     builder.Host.UseWindowsService();
     builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
     {
-        ["Urls"] = "http://127.0.0.1:8180"
+        ["Urls"] = "http://127.0.0.1:18180"
     });
     builder.Configuration.AddJsonFile(
         Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"),
@@ -118,7 +118,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseWebAssemblyDebugging();
+
     app.UseMigrationsEndPoint();
 }
 else

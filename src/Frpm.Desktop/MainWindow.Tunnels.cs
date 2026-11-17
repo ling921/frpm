@@ -415,7 +415,11 @@ internal sealed partial class MainWindow
             {
                 var result = await _workspace.GetNodesAsync(account.Id, operation.Token);
                 if (generation != nodesGeneration || operation.IsCancellationRequested) return;
-                nodes.ItemsSource = result.OrderByDescending(n => n.Available).ThenBy(n => n.Name).ToArray();
+                nodes.ItemsSource = result
+                    .OrderBy(n => NodeRegionClassifier.GetDisplayOrder(n.RegionGroup))
+                    .ThenByDescending(n => n.Available)
+                    .ThenBy(n => n.Name)
+                    .ToArray();
                 nodes.SelectedItem = result.FirstOrDefault(n => n.Id == tunnel?.NodeId);
                 randomRemotePort.IsEnabled = !account.Capabilities.HasNodes || nodes.SelectedItem is ProviderNodeModel;
                 nodeHelp.Text = result.Count == 0 ? "供应商没有返回节点。" : $"{result.Count} 个节点，创建前请选择节点。";
