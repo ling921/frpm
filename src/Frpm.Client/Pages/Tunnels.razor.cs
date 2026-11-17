@@ -17,7 +17,18 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
 
+    private static readonly IEqualityComparer<TunnelModel> _tunnelComparer = new TunnelModelIdEqualityComparer();
+
+    private sealed class TunnelModelIdEqualityComparer : IEqualityComparer<TunnelModel>
+    {
+        public bool Equals(TunnelModel? x, TunnelModel? y) => x?.Id == y?.Id;
+        public int GetHashCode(TunnelModel obj) => obj.Id.GetHashCode();
+    }
+
     private List<TunnelModel> _tunnels = [];
+    private HashSet<TunnelModel> _selectedTunnels = new(_tunnelComparer);
+    private readonly HashSet<Guid> _busyTunnelIds = [];
+    private bool _batchBusy;
     private List<ProviderAccountModel> _accounts = [];
     private List<ProviderNodeModel> _nodes = [];
     private readonly Dictionary<Guid, IReadOnlyDictionary<string, ProviderNodeModel>> _nodesByAccount = [];
@@ -42,6 +53,22 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     private bool UsesDomains => TunnelInputRules.IsDomainType(_request.Type);
     private bool UsesRemotePort => TunnelInputRules.UsesRemotePort(SelectedProviderType, _request.Type);
 
+    private bool IsTunnelBusy(Guid id) => _busyTunnelIds.Contains(id) || _batchBusy;
+    private bool IsSelected(TunnelModel tunnel) => _selectedTunnels.Any(x => x.Id == tunnel.Id);
+    private void ToggleSelect(TunnelModel tunnel, bool selected)
+    {
+        if (selected)
+        {
+            _selectedTunnels.Add(tunnel);
+        }
+        else
+        {
+            _selectedTunnels.RemoveWhere(x => x.Id == tunnel.Id);
+        }
+    }
+
+    private void ClearSelection() => _selectedTunnels.Clear();
+
     private string DomainHelperText => SelectedProviderType switch
     {
         ProviderType.LoliaFrp => "仅支持一个域名，请勿包含协议、端口或路径",
@@ -61,8 +88,11 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     {
         try
         {
+            _refreshing = true;
             _accounts = (await AccountService.GetListAsync(_cts.Token)).ToList();
-            _tunnels = (await TunnelService.GetListAsync(_cts.Token)).ToList();
+            var loaded = (await TunnelService.GetListAsync(_cts.Token)).ToList();
+            _tunnels = loaded;
+            _selectedTunnels.IntersectWith(loaded);
             _localAddressSuggestions = (await TunnelService.GetLocalAddressSuggestionsAsync(_cts.Token)).ToList();
             await LoadNodeAddressesAsync();
         }
@@ -76,6 +106,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         finally
         {
             _loading = false;
+            _refreshing = false;
         }
     }
 
@@ -96,6 +127,23 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         }));
         foreach (var result in results) _nodesByAccount[result.Id] = result.Nodes;
     }
+
+    private static bool TunnelsEqual(IReadOnlyList<TunnelModel> a, IReadOnlyList<TunnelModel> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            var x = a[i];
+            var y = b[i];
+            if (x.Id != y.Id || x.RuntimeState != y.RuntimeState || x.RemoteState != y.RemoteState ||
+                x.DesiredState != y.DesiredState || x.Name != y.Name || x.Remark != y.Remark ||
+                x.RemoteAddress != y.RemoteAddress || x.LocalAddress != y.LocalAddress ||
+                x.LocalPort != y.LocalPort || x.UpdatedAt != y.UpdatedAt)
+                return false;
+        }
+        return true;
+    }
+
     private async Task RefreshLoopAsync()
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
@@ -105,9 +153,13 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             {
                 try
                 {
-                    _refreshing = true;
-                    await InvokeAsync(StateHasChanged);
-                    _tunnels = (await TunnelService.GetListAsync(_cts.Token)).ToList();
+                    var updated = (await TunnelService.GetListAsync(_cts.Token)).ToList();
+                    if (!TunnelsEqual(_tunnels, updated))
+                    {
+                        _tunnels = updated;
+                        _selectedTunnels.IntersectWith(updated);
+                        await InvokeAsync(StateHasChanged);
+                    }
                 }
                 catch (OperationCanceledException) when (_cts.IsCancellationRequested)
                 {
@@ -117,17 +169,13 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
                 {
                     // A transient read failure must not terminate later refreshes.
                 }
-                finally
-                {
-                    _refreshing = false;
-                    await InvokeAsync(StateHasChanged);
-                }
             }
         }
         catch (OperationCanceledException)
         {
         }
     }
+
     private async Task OpenCreate()
     {
         if (_accounts.Count == 0)
@@ -260,6 +308,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             _busy = false;
         }
     }
+
     private async Task TestLocalEndpointAsync()
     {
         try
@@ -316,6 +365,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     {
         try
         {
+            _busyTunnelIds.Add(tunnel.Id);
             if (TunnelInputRules.RequiresLocalEndpoint(tunnel.ProviderType, tunnel.Type)
                 && !string.IsNullOrWhiteSpace(tunnel.LocalAddress)
                 && tunnel.LocalPort is not null)
@@ -327,12 +377,16 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
                 }
             }
             await TunnelService.StartAsync(tunnel.Id, _cts.Token);
-            Snackbar.Add("启动命令已执行。", Severity.Success);
+            Snackbar.Add($"隧道“{tunnel.Name}”启动命令已执行。", Severity.Success);
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            Snackbar.Add(ex.Message, Severity.Error);
+            Snackbar.Add($"启动失败：{ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busyTunnelIds.Remove(tunnel.Id);
         }
     }
 
@@ -340,13 +394,18 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
     {
         try
         {
+            _busyTunnelIds.Add(tunnel.Id);
             await TunnelService.StopAsync(tunnel.Id, _cts.Token);
-            Snackbar.Add("隧道已停止。", Severity.Info);
+            Snackbar.Add($"隧道“{tunnel.Name}”已停止。", Severity.Info);
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            Snackbar.Add(ex.Message, Severity.Error);
+            Snackbar.Add($"停止失败：{ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busyTunnelIds.Remove(tunnel.Id);
         }
     }
 
@@ -364,9 +423,9 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
         try
         {
-            _busy = true;
+            _busyTunnelIds.Add(tunnel.Id);
             await TunnelService.KickAsync(tunnel.Id, _cts.Token);
-            Snackbar.Add("已向供应商发送下线指令并解除禁用。", Severity.Success);
+            Snackbar.Add($"隧道“{tunnel.Name}”已向供应商发送下线指令并解除禁用。", Severity.Success);
             await LoadAsync();
         }
         catch (Exception ex)
@@ -375,7 +434,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         }
         finally
         {
-            _busy = false;
+            _busyTunnelIds.Remove(tunnel.Id);
         }
     }
 
@@ -393,14 +452,203 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
         try
         {
+            _busyTunnelIds.Add(tunnel.Id);
             await TunnelService.DeleteAsync(tunnel.Id, _cts.Token);
+            Snackbar.Add($"隧道“{tunnel.Name}”已成功删除。", Severity.Success);
+            _selectedTunnels.RemoveWhere(x => x.Id == tunnel.Id);
             await LoadAsync();
         }
         catch (Exception ex)
         {
-            Snackbar.Add(ex.Message, Severity.Error);
+            Snackbar.Add($"删除失败：{ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _busyTunnelIds.Remove(tunnel.Id);
         }
     }
+
+    private async Task BatchStartAsync()
+    {
+        var targets = _selectedTunnels.Where(t => t.RuntimeState != TunnelRuntimeState.Running).ToList();
+        if (targets.Count == 0)
+        {
+            Snackbar.Add("选中的隧道均已在运行中。", Severity.Info);
+            return;
+        }
+
+        _batchBusy = true;
+        var successCount = 0;
+        var failCount = 0;
+        try
+        {
+            foreach (var tunnel in targets)
+            {
+                try
+                {
+                    _busyTunnelIds.Add(tunnel.Id);
+                    await TunnelService.StartAsync(tunnel.Id, _cts.Token);
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    Snackbar.Add($"启动隧道“{tunnel.Name}”失败：{ex.Message}", Severity.Error);
+                }
+                finally
+                {
+                    _busyTunnelIds.Remove(tunnel.Id);
+                }
+            }
+
+            if (successCount > 0)
+            {
+                Snackbar.Add($"批量启动完成：成功启动 {successCount} 个隧道" + (failCount > 0 ? $"，失败 {failCount} 个" : "") + "。", failCount > 0 ? Severity.Warning : Severity.Success);
+            }
+            await LoadAsync();
+        }
+        finally
+        {
+            _batchBusy = false;
+        }
+    }
+
+    private async Task BatchStopAsync()
+    {
+        var targets = _selectedTunnels.Where(t => t.RuntimeState == TunnelRuntimeState.Running || t.RuntimeState == TunnelRuntimeState.Starting).ToList();
+        if (targets.Count == 0)
+        {
+            Snackbar.Add("选中的隧道均已处于停止状态。", Severity.Info);
+            return;
+        }
+
+        _batchBusy = true;
+        var successCount = 0;
+        var failCount = 0;
+        try
+        {
+            foreach (var tunnel in targets)
+            {
+                try
+                {
+                    _busyTunnelIds.Add(tunnel.Id);
+                    await TunnelService.StopAsync(tunnel.Id, _cts.Token);
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    Snackbar.Add($"停止隧道“{tunnel.Name}”失败：{ex.Message}", Severity.Error);
+                }
+                finally
+                {
+                    _busyTunnelIds.Remove(tunnel.Id);
+                }
+            }
+
+            if (successCount > 0)
+            {
+                Snackbar.Add($"批量停止完成：已停止 {successCount} 个隧道" + (failCount > 0 ? $"，失败 {failCount} 个" : "") + "。", Severity.Info);
+            }
+            await LoadAsync();
+        }
+        finally
+        {
+            _batchBusy = false;
+        }
+    }
+
+    private async Task BatchKickAsync()
+    {
+        var targets = _selectedTunnels.ToList();
+        if (targets.Count == 0) return;
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "批量强制下线并重置",
+            $"将向供应商发送强制下线指令并解除禁用状态（共 {targets.Count} 个隧道）。是否继续？",
+            yesText: "执行下线",
+            cancelText: "取消");
+        if (confirmed is not true) return;
+
+        _batchBusy = true;
+        var successCount = 0;
+        var failCount = 0;
+        try
+        {
+            foreach (var tunnel in targets)
+            {
+                try
+                {
+                    _busyTunnelIds.Add(tunnel.Id);
+                    await TunnelService.KickAsync(tunnel.Id, _cts.Token);
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    Snackbar.Add($"强制下线隧道“{tunnel.Name}”失败：{ex.Message}", Severity.Error);
+                }
+                finally
+                {
+                    _busyTunnelIds.Remove(tunnel.Id);
+                }
+            }
+
+            Snackbar.Add($"批量强制下线完成：已处理 {successCount} 个隧道" + (failCount > 0 ? $"，失败 {failCount} 个" : "") + "。", failCount > 0 ? Severity.Warning : Severity.Success);
+            await LoadAsync();
+        }
+        finally
+        {
+            _batchBusy = false;
+        }
+    }
+
+    private async Task BatchDeleteAsync()
+    {
+        var targets = _selectedTunnels.ToList();
+        if (targets.Count == 0) return;
+
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "批量删除隧道",
+            $"确定要彻底删除已选中的 {targets.Count} 个隧道吗？此操作将停止它们并从第三方供应商删除，无法撤销。",
+            yesText: "批量删除",
+            cancelText: "取消");
+        if (confirmed is not true) return;
+
+        _batchBusy = true;
+        var successCount = 0;
+        var failCount = 0;
+        try
+        {
+            foreach (var tunnel in targets)
+            {
+                try
+                {
+                    _busyTunnelIds.Add(tunnel.Id);
+                    await TunnelService.DeleteAsync(tunnel.Id, _cts.Token);
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    Snackbar.Add($"删除隧道“{tunnel.Name}”失败：{ex.Message}", Severity.Error);
+                }
+                finally
+                {
+                    _busyTunnelIds.Remove(tunnel.Id);
+                }
+            }
+
+            Snackbar.Add($"批量删除完成：成功删除 {successCount} 个隧道" + (failCount > 0 ? $"，失败 {failCount} 个" : "") + "。", failCount > 0 ? Severity.Warning : Severity.Success);
+            _selectedTunnels.Clear();
+            await LoadAsync();
+        }
+        finally
+        {
+            _batchBusy = false;
+        }
+    }
+
     private async Task OpenLogAsync(TunnelModel tunnel)
     {
         try
@@ -454,48 +702,60 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private IReadOnlyList<PublicAddress> GetPublicAddresses(TunnelModel tunnel)
     {
-        var remoteAddress = tunnel.RemoteAddress?.Trim();
-        if (string.IsNullOrWhiteSpace(remoteAddress)) return [];
-        if (TunnelInputRules.IsDomainType(tunnel.Type))
+        if (tunnel.Type is "http" or "https")
         {
-            var scheme = string.Equals(tunnel.Type, "https", StringComparison.OrdinalIgnoreCase) ? "https" : "http";
-            return TunnelInputRules.ParseDomains(remoteAddress)
-                .Select(domain => new PublicAddress(domain, $"{scheme}://{domain}"))
+            var hosts = (tunnel.RemoteAddress ?? string.Empty)
+                .Split([',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            if (hosts.Count > 0)
+            {
+                return hosts.Select(host =>
+                {
+                    var uriString = $"{tunnel.Type}://{host}";
+                    var valid = Uri.TryCreate(uriString, UriKind.Absolute, out var uri);
+                    return new PublicAddress(host, valid ? uri!.ToString() : null);
+                }).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(tunnel.ProviderDomain))
+            {
+                var uriString = $"{tunnel.Type}://{tunnel.ProviderDomain}";
+                var valid = Uri.TryCreate(uriString, UriKind.Absolute, out var uri);
+                return [new PublicAddress(tunnel.ProviderDomain, valid ? uri!.ToString() : null)];
+            }
         }
 
-        var host = tunnel.ProviderType switch
+        if (tunnel.ProviderType == ProviderType.SakuraFrp
+            && _nodesByAccount.TryGetValue(tunnel.ProviderAccountId, out var nodes)
+            && tunnel.NodeId is not null
+            && nodes.TryGetValue(tunnel.NodeId, out var node)
+            && !string.IsNullOrWhiteSpace(node.Address))
         {
-            ProviderType.SakuraFrp => tunnel.ProviderDomain ?? NodeAddress(tunnel),
-            ProviderType.LoliaFrp => tunnel.NodeAddress ?? NodeAddress(tunnel),
-            ProviderType.MeFrp => NodeAddress(tunnel),
-            _ => NodeAddress(tunnel)
-        };
-        return [new PublicAddress(FormatEndpoint(host, remoteAddress), null)];
+            var port = string.IsNullOrWhiteSpace(tunnel.RemoteAddress) ? "" : $":{tunnel.RemoteAddress}";
+            return [new PublicAddress($"{node.Address}{port}", null)];
+        }
+
+        if (!string.IsNullOrWhiteSpace(tunnel.NodeAddress))
+        {
+            var port = string.IsNullOrWhiteSpace(tunnel.RemoteAddress) ? "" : $":{tunnel.RemoteAddress}";
+            return [new PublicAddress($"{tunnel.NodeAddress}{port}", null)];
+        }
+
+        if (!string.IsNullOrWhiteSpace(tunnel.RemoteAddress))
+        {
+            return [new PublicAddress(tunnel.RemoteAddress, null)];
+        }
+
+        return [];
     }
 
-    private string? NodeAddress(TunnelModel tunnel) =>
-        _nodesByAccount.TryGetValue(tunnel.ProviderAccountId, out var nodes)
-        && tunnel.NodeId is not null
-        && nodes.TryGetValue(tunnel.NodeId, out var node)
-        && !string.IsNullOrWhiteSpace(node.Address)
-            ? node.Address.Trim()
-            : null;
-
-    private static string FormatEndpoint(string? host, string remoteAddress)
-    {
-        if (string.IsNullOrWhiteSpace(host)) return remoteAddress;
-        return host.Contains(':') && !host.StartsWith('[')
-            ? $"[{host}]:{remoteAddress}"
-            : $"{host}:{remoteAddress}";
-    }
-
-    private async Task CopyPublicAddressAsync(string address)
+    private async Task CopyPublicAddressAsync(string text)
     {
         try
         {
-            await JS.InvokeVoidAsync("navigator.clipboard.writeText", address);
-            Snackbar.Add("映射地址已复制。", Severity.Success);
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+            Snackbar.Add("已复制到剪贴板。", Severity.Success);
         }
         catch (Exception ex)
         {

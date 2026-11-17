@@ -18,6 +18,9 @@
 <body>
     <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
+    <div id="blazor-error-ui" data-nosnippet>
+        页面发生错误。<a href="." class="reload">重新加载</a><span class="dismiss">🗙</span>
+    </div>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["frpm-oauth.js"]"></script>
     <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>

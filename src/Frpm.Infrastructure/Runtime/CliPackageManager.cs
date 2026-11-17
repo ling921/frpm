@@ -152,7 +152,7 @@ public sealed class CliPackageManager(
                 File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead | UnixFileMode.GroupExecute);
             await VerifyExecutableAsync(executable, cancellationToken);
 
-            Directory.Move(stagingDirectory, installDirectory);
+            MoveDirectoryWithRetry(stagingDirectory, installDirectory);
             executable = Path.Combine(installDirectory, Path.GetRelativePath(stagingDirectory, executable));
             var package = new CliPackage
             {
@@ -394,6 +394,22 @@ public sealed class CliPackageManager(
                         && header[260] == (byte)'a' && header[261] == (byte)'r')
             return CliPackageContentKind.Tar;
         return CliPackageContentKind.Unknown;
+    }
+
+    private static void MoveDirectoryWithRetry(string source, string destination)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            try
+            {
+                Directory.Move(source, destination);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && i < 4)
+            {
+                Thread.Sleep(50 * (i + 1));
+            }
+        }
     }
 
     private static string DuplicatePackageMessage(ProviderType providerType, string version) =>

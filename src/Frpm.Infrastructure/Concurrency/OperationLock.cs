@@ -7,7 +7,7 @@ public sealed class OperationLock
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
 
-    public async Task<IAsyncDisposable> AcquireAsync(string key, CancellationToken cancellationToken)
+    public async Task<IAsyncDisposable> AcquireAsync(string key, CancellationToken cancellationToken = default)
     {
         var semaphore = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
         await semaphore.WaitAsync(cancellationToken);
