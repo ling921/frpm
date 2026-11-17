@@ -74,10 +74,10 @@
                                Variant="Variant.Outlined"
                                Dense="true"
                                Clearable="true">
-                        <MudSelectItem Value="@(string.Empty)">全部协议</MudSelectItem>
+                        <MudSelectItem T="string" Value="@(string.Empty)">全部协议</MudSelectItem>
                         @foreach (var proto in AvailableProtocols)
                         {
-                            <MudSelectItem Value="@proto">@proto.ToUpperInvariant()</MudSelectItem>
+                            <MudSelectItem T="string" Value="@proto">@proto.ToUpperInvariant()</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
@@ -125,8 +125,7 @@
                         </MudStack>
                         <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
                                        Size="Size.Small"
-                                       Color="Color.Default"
-                                       OnClick="@(() => ToggleGroup(group.GroupId))" />
+                                       Color="Color.Default" />
                     </div>
                     <MudDivider Class="mb-3" />
 

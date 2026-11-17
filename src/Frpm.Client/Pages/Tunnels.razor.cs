@@ -118,7 +118,6 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             _tunnels = loaded;
             SyncSelectedTunnels();
             _localAddressSuggestions = (await TunnelService.GetLocalAddressSuggestionsAsync(_cts.Token)).ToList();
-            await LoadNodeAddressesAsync();
         }
         catch (OperationCanceledException)
         {
@@ -132,9 +131,11 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             _loading = false;
             _refreshing = false;
         }
+
+        _ = LoadNodeAddressesInBackgroundAsync();
     }
 
-    private async Task LoadNodeAddressesAsync()
+    private async Task LoadNodeAddressesInBackgroundAsync()
     {
         var accountsWithNodes = _accounts.Where(account => account.Capabilities.HasNodes).ToList();
         var results = await Task.WhenAll(accountsWithNodes.Select(async account =>
@@ -142,7 +143,12 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             try
             {
                 var nodes = await AccountService.GetNodesAsync(account.Id, _cts.Token);
-                return (account.Id, Nodes: (IReadOnlyDictionary<string, ProviderNodeModel>)nodes.ToDictionary(node => node.Id, StringComparer.Ordinal));
+                var dict = new Dictionary<string, ProviderNodeModel>(StringComparer.Ordinal);
+                foreach (var node in nodes)
+                {
+                    if (!string.IsNullOrWhiteSpace(node.Id)) dict[node.Id] = node;
+                }
+                return (account.Id, Nodes: (IReadOnlyDictionary<string, ProviderNodeModel>)dict);
             }
             catch (Exception) when (!_cts.IsCancellationRequested)
             {
@@ -150,6 +156,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
             }
         }));
         foreach (var result in results) _nodesByAccount[result.Id] = result.Nodes;
+        await InvokeAsync(StateHasChanged);
     }
 
     private static bool TunnelsEqual(IReadOnlyList<TunnelModel> a, IReadOnlyList<TunnelModel> b)
@@ -259,7 +266,7 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private async Task OnProviderAccountChangedAsync(Guid accountId)
     {
-        if (_request.ProviderAccountId == accountId && _nodes.Count > 0)
+        if (_request.ProviderAccountId == accountId)
         {
             return;
         }
@@ -430,7 +437,12 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
                 .OrderByDescending(node => node.Available)
                 .ThenBy(node => node.Name)
                 .ToList();
-            _nodesByAccount[accountId] = _nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+            var dict = new Dictionary<string, ProviderNodeModel>(StringComparer.Ordinal);
+            foreach (var node in _nodes)
+            {
+                if (!string.IsNullOrWhiteSpace(node.Id)) dict[node.Id] = node;
+            }
+            _nodesByAccount[accountId] = dict;
         }
         catch (OperationCanceledException)
         {
