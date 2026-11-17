@@ -12,10 +12,11 @@ public partial class NodeSelectorDialog : ComponentBase
 
     private string _searchQuery = string.Empty;
     private string _selectedProtocol = string.Empty;
-    private string _selectedRegion = NodeRegionClassifier.GroupAll;
     private bool _onlyOnline;
     private bool _onlyLowLoad;
     private ProviderNodeModel? _selectedNode;
+
+    private readonly HashSet<string> _collapsedGroups = new(StringComparer.OrdinalIgnoreCase);
 
     protected override void OnInitialized()
     {
@@ -23,6 +24,10 @@ public partial class NodeSelectorDialog : ComponentBase
         if (!string.IsNullOrWhiteSpace(SelectedNodeId))
         {
             _selectedNode = Nodes.FirstOrDefault(n => string.Equals(n.Id, SelectedNodeId, StringComparison.OrdinalIgnoreCase));
+            if (_selectedNode is not null && !string.IsNullOrWhiteSpace(_selectedNode.RegionGroup))
+            {
+                _collapsedGroups.Remove(_selectedNode.RegionGroup);
+            }
         }
     }
 
@@ -66,22 +71,11 @@ public partial class NodeSelectorDialog : ComponentBase
         }
     }
 
-    private int GetGroupCount(string groupId)
-    {
-        if (groupId == NodeRegionClassifier.GroupAll) return Nodes.Count;
-        return Nodes.Count(n => string.Equals(n.RegionGroup, groupId, StringComparison.OrdinalIgnoreCase));
-    }
-
     private IReadOnlyList<ProviderNodeModel> FilteredNodes
     {
         get
         {
             var query = Nodes.AsEnumerable();
-
-            if (_selectedRegion != NodeRegionClassifier.GroupAll && !string.IsNullOrWhiteSpace(_selectedRegion))
-            {
-                query = query.Where(n => string.Equals(n.RegionGroup, _selectedRegion, StringComparison.OrdinalIgnoreCase));
-            }
 
             if (!string.IsNullOrWhiteSpace(_selectedProtocol))
             {
@@ -130,12 +124,6 @@ public partial class NodeSelectorDialog : ComponentBase
 
             foreach (var (groupId, displayName) in NodeRegionClassifier.DisplayGroups)
             {
-                if (_selectedRegion != NodeRegionClassifier.GroupAll &&
-                    !string.Equals(_selectedRegion, groupId, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 var groupNodes = filtered
                     .Where(n => string.Equals(n.RegionGroup, groupId, StringComparison.OrdinalIgnoreCase))
                     .ToList();
@@ -147,6 +135,40 @@ public partial class NodeSelectorDialog : ComponentBase
             }
 
             return result;
+        }
+    }
+
+    private bool IsGroupExpanded(string groupId)
+    {
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            return true;
+        }
+        return !_collapsedGroups.Contains(groupId);
+    }
+
+    private void ToggleGroup(string groupId)
+    {
+        if (!_collapsedGroups.Add(groupId))
+        {
+            _collapsedGroups.Remove(groupId);
+        }
+    }
+
+    private bool AllGroupsCollapsed => GroupedNodes.Count > 0 && GroupedNodes.All(g => _collapsedGroups.Contains(g.GroupId));
+
+    private void ToggleAllGroups()
+    {
+        if (AllGroupsCollapsed)
+        {
+            _collapsedGroups.Clear();
+        }
+        else
+        {
+            foreach (var g in GroupedNodes)
+            {
+                _collapsedGroups.Add(g.GroupId);
+            }
         }
     }
 

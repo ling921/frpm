@@ -202,39 +202,53 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private async Task OpenCreate()
     {
-        if (_accounts.Count == 0)
+        try
         {
-            Snackbar.Add("请先添加供应商账号。", Severity.Warning);
-            return;
-        }
+            if (_accounts.Count == 0)
+            {
+                Snackbar.Add("请先添加供应商账号。", Severity.Warning);
+                return;
+            }
 
-        _request = NewRequest();
-        _request.ProviderAccountId = _accounts[0].Id;
-        _editorOpen = true;
-        await LoadNodesAsync(_request.ProviderAccountId);
+            _request = NewRequest();
+            _request.ProviderAccountId = _accounts[0].Id;
+            _editorOpen = true;
+            await LoadNodesAsync(_request.ProviderAccountId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"打开创建隧道失败：{ex.Message}", Severity.Error);
+        }
     }
 
     private async Task EditAsync(TunnelModel tunnel)
     {
-        _request = new()
+        try
         {
-            TunnelId = tunnel.Id,
-            ProviderAccountId = tunnel.ProviderAccountId,
-            RemoteId = tunnel.RemoteId,
-            Name = tunnel.Name,
-            Remark = tunnel.Remark,
-            Type = tunnel.Type,
-            NodeId = tunnel.NodeId,
-            LocalAddress = tunnel.LocalAddress ?? "127.0.0.1",
-            LocalPort = tunnel.LocalPort,
-            CustomDomain = tunnel.Type is "http" or "https" ? tunnel.RemoteAddress : null,
-            RemotePort = tunnel.Type is not ("http" or "https")
-                && int.TryParse(tunnel.RemoteAddress, out var port)
-                    ? port
-                    : null
-        };
-        _editorOpen = true;
-        await LoadNodesAsync(_request.ProviderAccountId);
+            _request = new()
+            {
+                TunnelId = tunnel.Id,
+                ProviderAccountId = tunnel.ProviderAccountId,
+                RemoteId = tunnel.RemoteId,
+                Name = tunnel.Name,
+                Remark = tunnel.Remark,
+                Type = tunnel.Type,
+                NodeId = tunnel.NodeId,
+                LocalAddress = tunnel.LocalAddress ?? "127.0.0.1",
+                LocalPort = tunnel.LocalPort,
+                CustomDomain = tunnel.Type is "http" or "https" ? tunnel.RemoteAddress : null,
+                RemotePort = tunnel.Type is not ("http" or "https")
+                    && int.TryParse(tunnel.RemoteAddress, out var port)
+                        ? port
+                        : null
+            };
+            _editorOpen = true;
+            await LoadNodesAsync(_request.ProviderAccountId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"打开编辑隧道失败：{ex.Message}", Severity.Error);
+        }
     }
 
     private void CloseEditor()
@@ -245,6 +259,11 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private async Task OnProviderAccountChangedAsync(Guid accountId)
     {
+        if (_request.ProviderAccountId == accountId && _nodes.Count > 0)
+        {
+            return;
+        }
+
         _request.ProviderAccountId = accountId;
         _request.NodeId = null;
         if (!TunnelInputRules.TypesFor(SelectedProviderType, isEditing: _request.TunnelId is not null).Contains(_request.Type, StringComparer.OrdinalIgnoreCase))
@@ -256,6 +275,11 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private void OnTunnelTypeChanged(string type)
     {
+        if (string.Equals(_request.Type, type, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         _request.Type = type;
         if (!TunnelInputRules.IsDomainType(type)) _request.CustomDomain = null;
         if (!TunnelInputRules.UsesRemotePort(SelectedProviderType, type)) _request.RemotePort = null;
@@ -381,22 +405,42 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
         return $"{(b / (1024.0 * 1024 * 1024)):F2} GB";
     }
 
-    private async Task LoadNodesAsync(Guid accountId)
+    private async Task LoadNodesAsync(Guid accountId, bool forceRefresh = false)
     {
-        try
+        if (!forceRefresh && _nodesByAccount.TryGetValue(accountId, out var cached) && cached.Count > 0)
         {
-            _loadingNodes = true;
-            _nodes = (await AccountService.GetNodesAsync(accountId, _cts.Token))
+            _nodes = cached.Values
                 .OrderByDescending(node => node.Available)
                 .ThenBy(node => node.Name)
                 .ToList();
+            _loadingNodes = false;
+            return;
+        }
+
+        if (_loadingNodes)
+        {
+            return;
+        }
+
+        try
+        {
+            _loadingNodes = true;
+            var fetched = await AccountService.GetNodesAsync(accountId, _cts.Token);
+            _nodes = fetched
+                .OrderByDescending(node => node.Available)
+                .ThenBy(node => node.Name)
+                .ToList();
+            _nodesByAccount[accountId] = _nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
         }
         catch (OperationCanceledException)
         {
         }
         catch (Exception ex)
         {
-            _nodes = [];
+            if (!_nodesByAccount.TryGetValue(accountId, out var fallback) || fallback.Count == 0)
+            {
+                _nodes = [];
+            }
             Snackbar.Add($"加载节点失败：{ex.Message}", Severity.Error);
         }
         finally

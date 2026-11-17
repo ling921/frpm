@@ -54,7 +54,24 @@ internal sealed partial class MainWindow
             {
                 var used = account.TrafficUsedBytes ?? 0;
                 var limit = account.TrafficLimitBytes ?? 0;
-                content.Children.Add(Text($"流量配额：{TunnelActionEvaluator.FormatBytes(used)} / {(limit > 0 ? TunnelActionEvaluator.FormatBytes(limit) : "不限")}{(string.IsNullOrWhiteSpace(account.UserRole) ? "" : $" · 角色: {account.UserRole}")}{(account.BandwidthLimitBytes is not null ? $" · 带宽: {TunnelActionEvaluator.FormatBytes(account.BandwidthLimitBytes)}/s" : "")}", hint: true));
+                var pct = limit > 0 ? Math.Clamp((int)Math.Round((double)used / limit * 100.0), 0, 100) : 0;
+                content.Children.Add(Text($"流量配额：{TunnelActionEvaluator.FormatBytes(used)} / {(limit > 0 ? TunnelActionEvaluator.FormatBytes(limit) : "不限")}{(limit > 0 ? $" ({pct}%)" : "")}{(string.IsNullOrWhiteSpace(account.UserRole) ? "" : $" · 角色: {account.UserRole}")}{(account.BandwidthLimitBytes is not null ? $" · 带宽: {TunnelActionEvaluator.FormatBytes(account.BandwidthLimitBytes)}/s" : "")}", hint: true));
+
+                if (limit > 0)
+                {
+                    var barColor = pct < 60 ? "#107C10" : pct < 85 ? "#8A5A00" : "#C42B1C";
+                    var progressBar = new ProgressBar
+                    {
+                        Value = pct,
+                        Maximum = 100,
+                        Height = 6,
+                        CornerRadius = new Avalonia.CornerRadius(3),
+                        Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(barColor)),
+                        Margin = new Avalonia.Thickness(0, 4, 0, 4),
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+                    };
+                    content.Children.Add(progressBar);
+                }
             }
             content.Children.Add(Text($"最近同步：{Time(account.LastSyncAt)} · {account.LastSyncMessage ?? "尚未执行"}", hint: true));
             var actions = new List<Control> { ActionButton("编辑账号", () => EditAccountAsync(account)) };
@@ -142,20 +159,7 @@ internal sealed partial class MainWindow
     private async Task ShowNodesAsync(ProviderAccountModel account)
     {
         var nodes = await _workspace.GetNodesAsync(account.Id, _lifetime.Token);
-        var body = Stack(Text($"{account.DisplayName} · {nodes.Count} 个节点", size: 18));
-        foreach (var node in nodes.OrderByDescending(n => n.Available).ThenBy(n => n.Name))
-        {
-            var statusText = node.IsOnline ? "🟢 在线" : "🔴 离线";
-            var loadText = node.LoadPercent is not null ? $" · 负载: {node.LoadPercent}%" : "";
-            var vipText = node.IsVip ? " · VIP" : "";
-            var kycText = node.NeedKyc ? " · 需实名" : "";
-            var beianText = node.NeedBeian ? " · 需备案" : "";
-            var ratioText = node.TrafficRatio is not null ? $" · 倍率: {node.TrafficRatio:0.#}x" : "";
-
-            body.Children.Add(Section(Stack(Text($"{node.Name} · {statusText}{loadText}{vipText}{kycText}{beianText}{ratioText}"),
-                Text($"{node.Address ?? "默认地址"} · {node.Region ?? "通用地区"} · {node.Bandwidth ?? "默认带宽"}", hint: true),
-                Text($"类型：{node.AllowedTypes ?? "供应商默认"} · 端口：{node.PortRange ?? "供应商默认"}{(string.IsNullOrWhiteSpace(node.Description) ? "" : $" · {node.Description}")}", hint: true))));
-        }
-        await new FormDialog("供应商节点", body, () => Task.CompletedTask, "关闭").ShowDialog<bool>(this);
+        var selector = new NodeSelectorDialog(nodes, null, null, title: $"{account.DisplayName} · 节点列表", isSelectionMode: false);
+        await selector.ShowDialog<bool>(this);
     }
 }

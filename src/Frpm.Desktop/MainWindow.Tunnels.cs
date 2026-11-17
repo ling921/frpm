@@ -389,9 +389,40 @@ internal sealed partial class MainWindow
         var remotePortField = FormDialog.Field("远端端口（FRP 服务端）", Stack(remotePortInput,
             Text("留空时由服务商分配；随机按钮优先使用当前节点公布的端口范围。", hint: true)));
         var domainsField = FormDialog.Field("自定义域名", domains);
-        var nodeField = FormDialog.Field("节点", Stack(nodes, nodeHelp));
+        var pickNodeButton = new Button
+        {
+            Content = "挑选节点…",
+            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
+            Margin = new Avalonia.Thickness(8, 0, 0, 0),
+            IsEnabled = false
+        };
+        var nodePickerRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        nodePickerRow.Children.Add(nodes);
+        Grid.SetColumn(pickNodeButton, 1);
+        nodePickerRow.Children.Add(pickNodeButton);
+
+        var nodeField = FormDialog.Field("节点", Stack(nodePickerRow, nodeHelp));
         var testButton = new Button { Content = "测试本地服务", Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand) };
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+
+        IReadOnlyList<ProviderNodeModel> loadedNodes = Array.Empty<ProviderNodeModel>();
+        pickNodeButton.Click += async (_, _) =>
+        {
+            if (loadedNodes.Count == 0) return;
+            var currentSelected = nodes.SelectedItem as ProviderNodeModel;
+            var selector = new NodeSelectorDialog(
+                loadedNodes,
+                currentSelected?.Id ?? tunnel?.NodeId,
+                type.SelectedItem as string,
+                title: "选择服务器节点",
+                isSelectionMode: true);
+
+            var confirmed = await selector.ShowDialog<bool>((Window?)dialog ?? this);
+            if (confirmed && selector.SelectedNode is { } chosen)
+            {
+                nodes.SelectedItem = loadedNodes.FirstOrDefault(n => n.Id == chosen.Id) ?? chosen;
+            }
+        };
 
         void UpdateTypeFields()
         {
@@ -411,10 +442,12 @@ internal sealed partial class MainWindow
             var generation = ++nodesGeneration;
             var account = (ProviderAccountModel)accountBox.SelectedItem!;
             nodes.IsEnabled = false;
+            pickNodeButton.IsEnabled = false;
             try
             {
                 var result = await _workspace.GetNodesAsync(account.Id, operation.Token);
                 if (generation != nodesGeneration || operation.IsCancellationRequested) return;
+                loadedNodes = result;
                 nodes.ItemsSource = result
                     .OrderBy(n => NodeRegionClassifier.GetDisplayOrder(n.RegionGroup))
                     .ThenByDescending(n => n.Available)
@@ -422,11 +455,12 @@ internal sealed partial class MainWindow
                     .ToArray();
                 nodes.SelectedItem = result.FirstOrDefault(n => n.Id == tunnel?.NodeId);
                 randomRemotePort.IsEnabled = !account.Capabilities.HasNodes || nodes.SelectedItem is ProviderNodeModel;
-                nodeHelp.Text = result.Count == 0 ? "供应商没有返回节点。" : $"{result.Count} 个节点，创建前请选择节点。";
+                pickNodeButton.IsEnabled = tunnel is null && result.Count > 0;
+                nodeHelp.Text = result.Count == 0 ? "供应商没有返回节点。" : $"{result.Count} 个节点，创建前请选择节点。也可点击“挑选节点…”弹窗选择。";
             }
             catch (OperationCanceledException) { }
             catch (Exception ex) { nodeHelp.Text = $"节点加载失败：{ex.Message}"; }
-            finally { if (generation == nodesGeneration) nodes.IsEnabled = tunnel is null; }
+            finally { if (generation == nodesGeneration) { nodes.IsEnabled = tunnel is null; pickNodeButton.IsEnabled = tunnel is null && loadedNodes.Count > 0; } }
         }
         accountBox.SelectionChanged += async (_, _) =>
         {
@@ -434,6 +468,7 @@ internal sealed partial class MainWindow
             type.ItemsSource = TunnelInputRules.TypesFor(account.ProviderType, isEditing: tunnel is not null);
             type.SelectedItem = "tcp";
             randomRemotePort.IsEnabled = !account.Capabilities.HasNodes;
+            pickNodeButton.IsEnabled = false;
             UpdateTypeFields();
             await LoadNodesAsync();
         };
