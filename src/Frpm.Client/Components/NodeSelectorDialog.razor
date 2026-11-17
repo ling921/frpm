@@ -30,15 +30,39 @@
         line-height: 1.4em;
         max-height: 2.8em;
     }
-    .group-header {
+    .region-groups-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .region-group-panel {
+        border: 1px solid var(--mud-palette-lines-default);
+        border-radius: 8px;
+        overflow: hidden;
+        background-color: var(--mud-palette-surface);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .region-group-panel:hover {
+        border-color: rgba(var(--mud-palette-primary-rgb), 0.4);
+    }
+    .region-group-header {
         cursor: pointer;
         user-select: none;
-        padding: 6px 8px;
-        border-radius: 6px;
+        padding: 9px 14px;
+        background-color: var(--mud-palette-background-grey);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         transition: background-color 0.15s ease;
     }
-    .group-header:hover {
+    .region-group-header:hover {
         background-color: var(--mud-palette-action-default-hover);
+    }
+    .region-group-header.is-expanded {
+        border-bottom: 1px solid var(--mud-palette-lines-default);
+    }
+    .region-group-body {
+        padding: 12px;
     }
 </style>
 
@@ -105,32 +129,31 @@
             }
             else
             {
-                @foreach (var group in GroupedNodes)
-                {
-                    var onlineInGroup = group.Nodes.Count(n => n.IsOnline);
-                    var isExpanded = IsGroupExpanded(group.GroupId);
+                <div class="region-groups-list">
+                    @foreach (var group in GroupedNodes)
+                    {
+                        var onlineInGroup = group.Nodes.Count(n => n.IsOnline);
+                        var isExpanded = IsGroupExpanded(group.GroupId);
 
-                    <div class="group-header d-flex align-center justify-space-between mt-3 mb-1"
-                         @onclick="@(() => ToggleGroup(group.GroupId))">
-                        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
-                            <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                                     Color="Color.Primary"
-                                     Size="Size.Medium" />
-                            <MudText Typo="Typo.subtitle1" Style="font-weight: 700; color: var(--mud-palette-primary);">
-                                @group.DisplayName
-                            </MudText>
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Style="height: 20px; font-size: 11px;">
-                                @group.Nodes.Count 个节点 (@onlineInGroup 在线)
-                            </MudChip>
-                        </MudStack>
-                        <MudIconButton Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                                       Size="Size.Small"
-                                       Color="Color.Default" />
-                    </div>
-                    <MudDivider Class="mb-3" />
+                        <div class="region-group-panel">
+                            <div class="@($"region-group-header {(isExpanded ? "is-expanded" : "")}")"
+                                 @onclick="@(() => ToggleGroup(group.GroupId))">
+                                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudText Typo="Typo.subtitle2" Style="font-weight: 700; color: var(--mud-palette-primary);">
+                                        @group.DisplayName
+                                    </MudText>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" Style="height: 20px; font-size: 11px;">
+                                        @group.Nodes.Count 个节点 (@onlineInGroup 在线)
+                                    </MudChip>
+                                </MudStack>
+                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.KeyboardArrowUp : Icons.Material.Filled.KeyboardArrowDown)"
+                                         Size="Size.Small"
+                                         Color="Color.Default" />
+                            </div>
 
-                    <MudCollapse Expanded="@isExpanded">
-                        <MudGrid Spacing="2" Class="mb-3">
+                            <MudCollapse Expanded="@isExpanded">
+                                <div class="region-group-body">
+                                    <MudGrid Spacing="2">
                             @foreach (var node in group.Nodes)
                             {
                                 var isSelected = _selectedNode is not null && string.Equals(node.Id, _selectedNode.Id, StringComparison.OrdinalIgnoreCase);
@@ -215,9 +238,12 @@
                                     </MudCard>
                                 </MudItem>
                             }
-                        </MudGrid>
-                    </MudCollapse>
-                }
+                                    </MudGrid>
+                                </div>
+                            </MudCollapse>
+                        </div>
+                    }
+                </div>
             }
         </MudStack>
     </DialogContent>

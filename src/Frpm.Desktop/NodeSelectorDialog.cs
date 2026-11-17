@@ -337,19 +337,21 @@ internal sealed class NodeSelectorDialog : Window
             var onlineInGroup = groupNodes.Count(n => n.IsOnline);
             var isCollapsed = !hasSearch && _collapsedGroups.Contains(groupId);
 
-            // Group Header Border (clickable)
+            // Group Panel Container
             var chevron = new TextBlock
             {
-                Text = isCollapsed ? "▶ " : "▼ ",
+                Text = isCollapsed ? "⌄" : "⌃",
                 FontWeight = FontWeight.Bold,
+                FontSize = 14,
                 VerticalAlignment = VerticalAlignment.Center,
-                Foreground = new SolidColorBrush(Color.Parse("#0078D4"))
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Foreground = new SolidColorBrush(Color.FromArgb(160, 128, 128, 128))
             };
             var groupTitle = new TextBlock
             {
                 Text = displayName,
                 FontWeight = FontWeight.Bold,
-                FontSize = 15,
+                FontSize = 14,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = new SolidColorBrush(Color.Parse("#0078D4"))
             };
@@ -361,29 +363,50 @@ internal sealed class NodeSelectorDialog : Window
                 Margin = new Thickness(8, 0, 0, 0)
             };
 
-            var headerStack = new StackPanel
+            var headerLeft = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Children = { chevron, groupTitle, groupBadge }
+                Children = { groupTitle, groupBadge }
             };
+
+            var headerGrid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(headerLeft, 0);
+            Grid.SetColumn(chevron, 1);
+            headerGrid.Children.Add(headerLeft);
+            headerGrid.Children.Add(chevron);
 
             var groupHeader = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(12, 0, 120, 212)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(40, 0, 120, 212)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(5),
-                Padding = new Thickness(10, 7),
-                Margin = new Thickness(0, 8, 0, 6),
+                Background = new SolidColorBrush(Color.FromArgb(16, 0, 120, 212)),
+                Padding = new Thickness(12, 9),
                 Cursor = new Cursor(StandardCursorType.Hand),
-                Child = headerStack
+                Child = headerGrid
             };
 
             var cardsStack = new StackPanel
             {
                 Spacing = 6,
-                Margin = new Thickness(4, 0, 4, 8),
+                Margin = new Thickness(10, 10, 10, 6),
                 IsVisible = !isCollapsed
+            };
+
+            var panelStack = new StackPanel
+            {
+                Children = { groupHeader, cardsStack }
+            };
+
+            var groupPanel = new Border
+            {
+                BorderBrush = new SolidColorBrush(Color.FromArgb(50, 0, 120, 212)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 0, 8),
+                ClipToBounds = true,
+                Child = panelStack
             };
 
             var capturedGroupId = groupId;
@@ -394,7 +417,7 @@ internal sealed class NodeSelectorDialog : Window
                     _collapsedGroups.Remove(capturedGroupId);
                 }
                 var nowCollapsed = _collapsedGroups.Contains(capturedGroupId);
-                chevron.Text = nowCollapsed ? "▶ " : "▼ ";
+                chevron.Text = nowCollapsed ? "⌄" : "⌃";
                 cardsStack.IsVisible = !nowCollapsed;
             };
 
@@ -403,8 +426,7 @@ internal sealed class NodeSelectorDialog : Window
                 cardsStack.Children.Add(CreateNodeCard(node));
             }
 
-            _groupsContainer.Children.Add(groupHeader);
-            _groupsContainer.Children.Add(cardsStack);
+            _groupsContainer.Children.Add(groupPanel);
         }
     }
 
