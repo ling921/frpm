@@ -63,7 +63,7 @@ public partial class Login
         else
         {
             // If doing a password sign-in, validate the form.
-            if (!editContext.Validate())
+            if (!await editContext.ValidateAsync())
             {
                 return;
             }

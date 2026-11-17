@@ -54,7 +54,13 @@ public partial class Providers : ComponentBase, IAsyncDisposable
         }
 
         _oauthCallbackReference = DotNetObjectReference.Create(this);
-        await JSRuntime.InvokeVoidAsync("frpmOAuth.initialize", _oauthCallbackReference);
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("frpmOAuth.initialize", _oauthCallbackReference);
+        }
+        catch (JSException)
+        {
+        }
     }
 
     private async Task LoadAsync()
@@ -187,7 +193,13 @@ public partial class Providers : ComponentBase, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("frpmOAuth.cancel");
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("frpmOAuth.cancel");
+            }
+            catch (JSException)
+            {
+            }
             Snackbar.Add(ex.Message, Severity.Error);
             _busy = false;
         }
@@ -234,7 +246,13 @@ public partial class Providers : ComponentBase, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("frpmOAuth.cancel");
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("frpmOAuth.cancel");
+            }
+            catch (JSException)
+            {
+            }
             Snackbar.Add(ex.Message, Severity.Error);
             _busy = false;
         }

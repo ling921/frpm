@@ -285,6 +285,31 @@ public sealed class ProviderAdapterTests
     }
 
     [Fact]
+    public async Task Sakura_parses_account_metrics_from_user_info_object_group_and_traffic_array()
+    {
+        var provider = new SakuraFrpProvider(new FakeHttpClientFactory(request => Json("""
+            {
+              "id": 3887392,
+              "name": "TomCN",
+              "speed": "10 Mbps",
+              "tunnels": 2,
+              "realname": 2,
+              "group": {"name": "普通用户", "level": 0, "expires": 0},
+              "traffic": [149924, 14663689720],
+              "bandwidth": null
+            }
+            """)));
+
+        var metrics = await provider.GetAccountMetricsAsync("https://example.test/v4", new ProviderCredentials("secret"), CancellationToken.None);
+
+        Assert.NotNull(metrics);
+        Assert.Equal("普通用户", metrics.UserRole);
+        Assert.Equal(149924, metrics.TrafficUsedBytes);
+        Assert.Equal(149924 + 14663689720, metrics.TrafficLimitBytes);
+        Assert.Equal(10 * 1_000_000 / 8, metrics.BandwidthLimitBytes);
+    }
+
+    [Fact]
     public async Task Provider_rejects_missing_access_token_before_http_call()
     {
         var provider = new SakuraFrpProvider(new FakeHttpClientFactory(_ => throw new InvalidOperationException("HTTP should not be called")));

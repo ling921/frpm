@@ -118,7 +118,26 @@ public sealed class ProviderAccountService(
             account.LastSyncAt, account.LastSyncSucceeded, account.LastSyncMessage,
             account.Tunnels.Count(x => x.DeletedAt is null), providerFactory.Get(account.ProviderType).Capabilities,
             clientId, hasClientSecret,
-            account.TrafficLimitBytes, account.TrafficUsedBytes, account.BandwidthLimitBytes, account.UserRole);
+            account.TrafficLimitBytes, account.TrafficUsedBytes, account.BandwidthLimitBytes, CleanRole(account.UserRole));
+    }
+
+    private static string? CleanRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role)) return null;
+        var trimmed = role.Trim();
+        if (trimmed.StartsWith('{') && trimmed.EndsWith('}'))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(trimmed);
+                if (doc.RootElement.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    return nameProp.GetString() ?? trimmed;
+                }
+            }
+            catch { }
+        }
+        return role;
     }
 
 }

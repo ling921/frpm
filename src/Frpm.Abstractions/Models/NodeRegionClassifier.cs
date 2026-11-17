@@ -61,9 +61,26 @@ public static class NodeRegionClassifier
         _ => "全部"
     };
 
+    public static IReadOnlyList<(string GroupId, string DisplayName)> DisplayGroups { get; } =
+    [
+        (GroupChina, "🇨🇳 中国大陆"),
+        (GroupHongKongMacauTaiwan, "🇭🇰 港澳台"),
+        (GroupAsiaPacific, "🌏 亚太其他"),
+        (GroupGlobal, "🌐 欧美及海外")
+    ];
+
+    public static int GetDisplayOrder(string? groupId) => groupId switch
+    {
+        GroupChina => 1,
+        GroupHongKongMacauTaiwan => 2,
+        GroupAsiaPacific => 3,
+        GroupGlobal => 4,
+        _ => 5
+    };
+
     public static IReadOnlyList<(string GroupId, string DisplayName)> AllGroups { get; } =
     [
-        (GroupAll, "全部"),
+        (GroupAll, "全部地区"),
         (GroupChina, "🇨🇳 中国大陆"),
         (GroupHongKongMacauTaiwan, "🇭🇰 港澳台"),
         (GroupAsiaPacific, "🌏 亚太其他"),

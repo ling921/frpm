@@ -35,7 +35,7 @@ docker compose pull
 docker compose up -d
 ```
 
-打开 `http://localhost:8180`。
+打开 `http://localhost:18180`。
 
 ## 桌面版（Windows / Linux）
 

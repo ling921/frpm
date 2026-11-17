@@ -42,15 +42,21 @@ public partial class RealtimeLogDialog : ComponentBase, IAsyncDisposable
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         _rendered = true;
-        if (firstRender)
+        try
         {
-            _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./frpm-logs.js");
-        }
+            if (firstRender)
+            {
+                _module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./frpm-logs.js");
+            }
 
-        if (_scrollAfterRender && _module is not null)
+            if (_scrollAfterRender && _module is not null)
+            {
+                _scrollAfterRender = false;
+                await _module.InvokeVoidAsync("scrollToBottom", _outputElement);
+            }
+        }
+        catch (JSException)
         {
-            _scrollAfterRender = false;
-            await _module.InvokeVoidAsync("scrollToBottom", _outputElement);
         }
     }
 

@@ -159,7 +159,7 @@ else if (Filtered.Count == 0)
 else
 {
     <MudHidden Breakpoint="Breakpoint.SmAndDown">
-        <MudTable T="TunnelModel" Items="Filtered" MultiSelection="true" @bind-SelectedItems="_selectedTunnels" Comparer="_tunnelComparer" SelectOnRowClick="false" Hover Dense Elevation="0" Outlined>
+        <MudTable T="TunnelModel" Items="Filtered" MultiSelection="true" SelectedItems="_selectedTunnels" SelectedItemsChanged="OnSelectedItemsChanged" Comparer="_tunnelComparer" SelectOnRowClick="false" Hover Dense Elevation="0" Outlined>
             <HeaderContent>
                 <MudTh>隧道</MudTh>
                 <MudTh>供应商</MudTh>
