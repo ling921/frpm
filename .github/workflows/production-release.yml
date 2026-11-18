@@ -228,7 +228,12 @@ jobs:
             Write-Host "Azure AD credentials not provided; skipping Microsoft Store submission."
             exit 0
           }
-          dotnet tool install -g Microsoft.Store.CLI
+          $cliDir = Join-Path $env:RUNNER_TEMP 'msstore-cli'
+          New-Item -ItemType Directory -Force -Path $cliDir | Out-Null
+          $cliZip = Join-Path $cliDir 'MSStoreCLI-win-x64.zip'
+          Invoke-WebRequest -Uri 'https://github.com/microsoft/msstore-cli/releases/latest/download/MSStoreCLI-win-x64.zip' -OutFile $cliZip
+          Expand-Archive -Path $cliZip -DestinationPath $cliDir -Force
+          $env:PATH = "$cliDir;$env:PATH"
           msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
           $packages = @(Get-ChildItem -LiteralPath publish/msix -Filter '*.msixupload' -File)
           if ($packages.Count -ne 1) { throw 'Expected exactly one Store upload package.' }
