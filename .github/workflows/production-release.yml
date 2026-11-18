@@ -20,6 +20,11 @@ on:
         required: true
         default: true
         type: boolean
+      store_only:
+        description: 'Only run Microsoft Store build and submission (skip Linux, Windows installer, and Docker)'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -36,7 +41,7 @@ env:
 jobs:
   linux-packages:
     name: Build Linux packages (${{ matrix.rid }})
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ (github.event_name != 'release' || !github.event.release.prerelease) && (github.event_name != 'workflow_dispatch' || !inputs.store_only) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -92,7 +97,7 @@ jobs:
 
   windows-installer:
     name: Build Windows installer
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ (github.event_name != 'release' || !github.event.release.prerelease) && (github.event_name != 'workflow_dispatch' || !inputs.store_only) }}
     runs-on: windows-latest
 
     steps:
@@ -208,13 +213,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          files: publish/msix/*.msixupload
-          fail_on_unmatched_files: false
-
       - name: Authenticate and submit to Microsoft Store
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.submit_to_store }}
         shell: pwsh
@@ -228,7 +226,12 @@ jobs:
             Write-Host "Azure AD credentials not provided; skipping Microsoft Store submission."
             exit 0
           }
-          dotnet tool install -g Microsoft.Store.CLI
+          $cliDir = Join-Path $env:RUNNER_TEMP 'msstore-cli'
+          New-Item -ItemType Directory -Force -Path $cliDir | Out-Null
+          $cliZip = Join-Path $cliDir 'MSStoreCLI-win-x64.zip'
+          Invoke-WebRequest -Uri 'https://github.com/microsoft/msstore-cli/releases/latest/download/MSStoreCLI-win-x64.zip' -OutFile $cliZip
+          Expand-Archive -Path $cliZip -DestinationPath $cliDir -Force
+          $env:PATH = "$cliDir;$env:PATH"
           msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
           $packages = @(Get-ChildItem -LiteralPath publish/msix -Filter '*.msixupload' -File)
           if ($packages.Count -ne 1) { throw 'Expected exactly one Store upload package.' }
@@ -250,7 +253,7 @@ jobs:
 
   docker-publish:
     name: Build and publish Docker image
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ (github.event_name != 'release' || !github.event.release.prerelease) && (github.event_name != 'workflow_dispatch' || !inputs.store_only) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
