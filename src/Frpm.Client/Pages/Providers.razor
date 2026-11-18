@@ -99,7 +99,7 @@ else
                                         @FormatBytes(used) / @(limit > 0 ? FormatBytes(limit) : "不限") (@pct%)
                                     </MudText>
                                 </MudStack>
-                                <MudProgressLinear Value="@pct" Color="@(pct < 60 ? Color.Success : pct < 85 ? Color.Warning : Color.Error)" Size="Size.Small" Style="height: 5px; border-radius: 3px;" />
+                                <MudProgressLinear Rounded="true" Value="@pct" Color="@(pct < 60 ? Color.Success : pct < 85 ? Color.Warning : Color.Error)" Size="Size.Small" Style="height: 6px; border-radius: 4px; overflow: hidden;" />
                             </MudStack>
                         }
                         @if (!string.IsNullOrWhiteSpace(account.UserRole) || account.BandwidthLimitBytes is not null)

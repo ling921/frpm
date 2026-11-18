@@ -15,7 +15,7 @@
             <MudText Typo="Typo.caption" Color="Color.Secondary">正在刷新…</MudText>
         </MudStack>
     }
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreate">创建隧道</MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreate" Disabled="_busy">创建隧道</MudButton>
 </MudStack>
 
 @if (_editorOpen)
@@ -23,13 +23,13 @@
     <MudPaper Class="pa-5 mb-5" Outlined Elevation="0">
         <MudText Typo="Typo.h6" GutterBottom>@(_request.TunnelId is null ? "创建隧道" : "编辑隧道")</MudText>
         <MudGrid>
-            <MudItem xs="12" md="4"><MudSelect T="Guid" Label="供应商账号" Value="_request.ProviderAccountId" ValueChanged="OnProviderAccountChangedAsync" Variant="Variant.Outlined" Disabled="@(_request.TunnelId is not null)">@foreach (var account in _accounts) { <MudSelectItem Value="account.Id">@account.DisplayName (@BuiltInProviderCatalog.Get(account.ProviderType).DisplayName)</MudSelectItem> }</MudSelect></MudItem>
+            <MudItem xs="12" md="4"><MudSelect T="Guid" Label="供应商账号" Value="_request.ProviderAccountId" ValueChanged="OnProviderAccountChangedAsync" Variant="Variant.Outlined" Disabled="@(_request.TunnelId is not null)">@foreach (var account in _accounts) { <MudSelectItem T="Guid" Value="account.Id">@account.DisplayName (@BuiltInProviderCatalog.Get(account.ProviderType).DisplayName)</MudSelectItem> }</MudSelect></MudItem>
             <MudItem xs="12" md="4"><MudTextField Label="隧道名称" @bind-Value="_request.Name" Variant="Variant.Outlined" Required /></MudItem>
             <MudItem xs="12" md="4">
                 <MudSelect T="string" Label="类型" Value="_request.Type" ValueChanged="OnTunnelTypeChanged" Variant="Variant.Outlined">
                     @foreach (var type in AvailableTunnelTypes)
                     {
-                        <MudSelectItem Value="type">@type.ToUpperInvariant()</MudSelectItem>
+                        <MudSelectItem T="string" Value="type">@type.ToUpperInvariant()</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>

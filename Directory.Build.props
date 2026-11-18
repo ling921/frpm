@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <Version>1.0.1-beta.5</Version>
-    <PackageVersion>1.0.1-beta.5</PackageVersion>
+    <Version>1.0.1</Version>
+    <PackageVersion>1.0.1</PackageVersion>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <FileVersion>1.0.1.0</FileVersion>
-    <InformationalVersion>1.0.1-beta.5</InformationalVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
   </PropertyGroup>
 </Project>
