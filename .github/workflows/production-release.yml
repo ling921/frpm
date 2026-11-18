@@ -213,13 +213,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          files: publish/msix/*.msixupload
-          fail_on_unmatched_files: false
-
       - name: Authenticate and submit to Microsoft Store
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.submit_to_store }}
         shell: pwsh
