@@ -20,6 +20,11 @@ on:
         required: true
         default: true
         type: boolean
+      store_only:
+        description: 'Only run Microsoft Store build and submission (skip Linux, Windows installer, and Docker)'
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -36,7 +41,7 @@ env:
 jobs:
   linux-packages:
     name: Build Linux packages (${{ matrix.rid }})
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ (github.event_name != 'release' || !github.event.release.prerelease) && (github.event_name != 'workflow_dispatch' || !inputs.store_only) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -92,7 +97,7 @@ jobs:
 
   windows-installer:
     name: Build Windows installer
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ (github.event_name != 'release' || !github.event.release.prerelease) && (github.event_name != 'workflow_dispatch' || !inputs.store_only) }}
     runs-on: windows-latest
 
     steps:
@@ -255,7 +260,7 @@ jobs:
 
   docker-publish:
     name: Build and publish Docker image
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    if: ${{ (github.event_name != 'release' || !github.event.release.prerelease) && (github.event_name != 'workflow_dispatch' || !inputs.store_only) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
