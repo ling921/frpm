@@ -59,7 +59,11 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
 
     private void OnSelectedItemsChanged(HashSet<TunnelModel> items)
     {
-        _selectedTunnels = new HashSet<TunnelModel>(items, _tunnelComparer);
+        // MudTable raises SelectedItemsChanged from its SelectedItems setter whenever the incoming
+        // instance differs from its internal selection. Copying the argument here would hand the table
+        // a fresh instance on every render, which re-raises the callback and spins the renderer forever
+        // (the page stops responding). Keep the table's own instance so subsequent renders are no-ops.
+        _selectedTunnels = items;
         _selectedTunnelIds.Clear();
         foreach (var item in items)
         {
@@ -155,8 +159,21 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
                 return (account.Id, Nodes: (IReadOnlyDictionary<string, ProviderNodeModel>)new Dictionary<string, ProviderNodeModel>());
             }
         }));
-        foreach (var result in results) _nodesByAccount[result.Id] = result.Nodes;
-        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            // The lookup is rendered from the component context; write it there instead of on the
+            // thread-pool continuation so a render never observes a partially updated dictionary.
+            await InvokeAsync(() =>
+            {
+                foreach (var result in results) _nodesByAccount[result.Id] = result.Nodes;
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex) when (ex is ObjectDisposedException or OperationCanceledException)
+        {
+            // The page was left while node addresses were still loading.
+        }
     }
 
     private static bool TunnelsEqual(IReadOnlyList<TunnelModel> a, IReadOnlyList<TunnelModel> b)
@@ -187,9 +204,14 @@ public partial class Tunnels : ComponentBase, IAsyncDisposable
                     var updated = (await TunnelService.GetListAsync(_cts.Token)).ToList();
                     if (!TunnelsEqual(_tunnels, updated))
                     {
-                        _tunnels = updated;
-                        SyncSelectedTunnels();
-                        await InvokeAsync(StateHasChanged);
+                        // The timer loop runs on a thread-pool thread; applying the snapshot through
+                        // InvokeAsync keeps all component state changes on the renderer context.
+                        await InvokeAsync(() =>
+                        {
+                            _tunnels = updated;
+                            SyncSelectedTunnels();
+                            StateHasChanged();
+                        });
                     }
                 }
                 catch (OperationCanceledException) when (_cts.IsCancellationRequested)

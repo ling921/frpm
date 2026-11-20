@@ -1,0 +1,4 @@
+{
+  "zh-cn": "修复：修复 Web 控制台隧道页面打开后卡死、点击任何按钮均无响应的问题，原因是表格选中项回调触发了 Blazor 无限重渲染。\n改进：隧道列表定时刷新与节点地址后台加载改为在渲染上下文更新状态，避免并发读写集合导致的偶发异常。",
+  "en-us": "Fixed: Resolved the Web console tunnels page freezing with unresponsive clicks, caused by an infinite Blazor re-render loop driven by the table selection callback.\nImproved: Tunnel list refreshes and background node-address loading now update component state on the renderer context, preventing rare races from concurrent collection access."
+}
